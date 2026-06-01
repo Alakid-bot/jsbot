@@ -1,0 +1,133 @@
+# yaml-language-server: $schema=https://schema.zeabur.app/template.json
+apiVersion: zeabur.com/v1
+kind: Template
+metadata:
+  name: JSBot
+spec:
+  description: Discord bot with a PostgreSQL database for Zeabur deployment.
+  tags:
+    - Tool
+    - Database
+  variables:
+    - key: JSBOT_CONFIG_JSON_BASE64
+      type: PASSWORD
+      name: Bot config JSON base64
+      description: Base64 encoded content of config.json. Generate with `base64 -w 0 config.json`.
+    - key: TZ
+      type: STRING
+      name: Time zone
+      description: Container time zone, for example Asia/Shanghai or UTC.
+  readme: |-
+    # JSBot on Zeabur
+
+    This template deploys two services in the same Zeabur project:
+
+    - `jsbot`: the Discord bot service built from `Alakid-bot/jsbot:main`.
+    - `postgresql`: a PostgreSQL 16 database with persistent storage.
+
+    Before deployment, prepare a real `config.json`, then generate:
+
+    ```bash
+    base64 -w 0 config.json
+    ```
+
+    Put the output into `JSBOT_CONFIG_JSON_BASE64`.
+
+    PostgreSQL is created automatically. The bot service receives the database connection through Zeabur variables and generates `/app/pg.config.json` at startup.
+  services:
+    - name: postgresql
+      icon: https://raw.githubusercontent.com/zeabur/service-icons/main/marketplace/postgresql.svg
+      template: PREBUILT
+      spec:
+        source:
+          image: postgres:16
+        ports:
+          - id: database
+            port: 5432
+            type: TCP
+        volumes:
+          - id: data
+            dir: /var/lib/postgresql/data
+        portForwarding:
+          enabled: false
+        env:
+          POSTGRES_USER:
+            default: root
+          POSTGRES_DB:
+            default: jsbot
+          PGDATA:
+            default: /var/lib/postgresql/data/pgdata
+          POSTGRES_HOST:
+            default: ${CONTAINER_HOSTNAME}
+            expose: true
+            readonly: true
+          POSTGRES_PORT:
+            default: ${DATABASE_PORT}
+            expose: true
+            readonly: true
+          POSTGRES_USERNAME:
+            default: ${POSTGRES_USER}
+            expose: true
+            readonly: true
+          POSTGRES_PASSWORD:
+            default: ${PASSWORD}
+            expose: true
+          POSTGRES_DATABASE:
+            default: ${POSTGRES_DB}
+            expose: true
+            readonly: true
+          POSTGRES_CONNECTION_STRING:
+            default: postgresql://${POSTGRES_USERNAME}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DATABASE}
+            expose: true
+            readonly: true
+          POSTGRES_URI:
+            default: ${POSTGRES_CONNECTION_STRING}
+            expose: true
+            readonly: true
+        instructions:
+          - title: Internal PostgreSQL connection string
+            content: ${POSTGRES_CONNECTION_STRING}
+          - title: PostgreSQL username
+            content: ${POSTGRES_USERNAME}
+          - title: PostgreSQL database
+            content: ${POSTGRES_DATABASE}
+
+    - name: jsbot
+      template: GIT
+      dependencies:
+        - postgresql
+      spec:
+        source:
+          source: GITHUB
+          repo: 1256114118
+          branch: main
+        volumes:
+          - id: data
+            dir: /app/data
+          - id: logs
+            dir: /app/logs
+        env:
+          NODE_ENV:
+            default: production
+          TZ:
+            default: ${TZ}
+          JSBOT_CONFIG_JSON_BASE64:
+            default: ${JSBOT_CONFIG_JSON_BASE64}
+          JSBOT_PG_POOL_MAX:
+            default: "20"
+          JSBOT_PG_IDLE_TIMEOUT_MILLIS:
+            default: "30000"
+          JSBOT_PG_CONNECTION_TIMEOUT_MILLIS:
+            default: "5000"
+          JSBOT_PG_LOGGING:
+            default: "false"
+          ZEABUR_POSTGRES_HOST:
+            default: ${POSTGRES_HOST}
+          ZEABUR_POSTGRES_PORT:
+            default: ${POSTGRES_PORT}
+          ZEABUR_POSTGRES_DATABASE:
+            default: ${POSTGRES_DATABASE}
+          ZEABUR_POSTGRES_USERNAME:
+            default: ${POSTGRES_USERNAME}
+          ZEABUR_POSTGRES_PASSWORD:
+            default: ${POSTGRES_PASSWORD}

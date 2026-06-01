@@ -9,7 +9,9 @@
 - `deploy/zeabur/entrypoint.sh`：容器启动时从 Zeabur 环境变量生成运行所需的 `config.json`、可选 `pg.config.json` 和 `data/messageIds.json`。
 - `deploy/zeabur/env.example`：Zeabur 环境变量模板。
 - `deploy/zeabur/config.zeabur.example.json`：适合复制后填写的 `config.json` 模板。
-- `deploy/zeabur/pg.config.zeabur.example.json`：可选 PostgreSQL 配置模板。
+- `deploy/zeabur/pg.config.basic.example.json`：普通 PostgreSQL `pg.config.json` 示例。
+- `deploy/zeabur/pg.config.zeabur.example.json`：使用 Zeabur `${POSTGRES_*}` 变量的 PostgreSQL 配置模板。
+- `zeabur-template.yaml`：一键部署模板，会同时创建 Bot 服务和 PostgreSQL 服务。
 
 ## Zeabur 操作步骤
 
@@ -19,6 +21,70 @@
 4. 在 Zeabur 服务的 **Environment Variables** 添加环境变量。
 5. 建议添加持久化 Volume，挂载到 `/app/data`，用于保存 SQLite 数据库、`messageIds.json`、答疑日志等运行时数据。
 6. 如需保留应用日志，也可以额外挂载 `/app/logs`。
+
+## 一键部署 Bot + PostgreSQL
+
+如果希望在 Zeabur 上创建项目时同时部署 Bot 和 PostgreSQL，可以使用仓库根目录的：
+
+```text
+zeabur-template.yaml
+```
+
+该模板会创建两个服务：
+
+- `postgresql`：基于 `postgres:16` 的 PostgreSQL 数据库，持久化目录是 `/var/lib/postgresql/data`。
+- `jsbot`：从 `Alakid-bot/jsbot` 的 `main` 分支构建并运行 Bot，持久化目录是 `/app/data` 和 `/app/logs`。
+
+模板中的 `jsbot` 服务依赖 `postgresql` 服务，Zeabur 会先启动数据库，再启动 Bot。
+
+使用 CLI 部署示例：
+
+```bash
+npx zeabur@latest template deploy -f zeabur-template.yaml
+```
+
+部署时需要填写：
+
+```env
+JSBOT_CONFIG_JSON_BASE64=BASE64_ENCODED_CONFIG_JSON
+TZ=Asia/Shanghai
+```
+
+其中 `JSBOT_CONFIG_JSON_BASE64` 来自：
+
+```bash
+base64 -w 0 config.json
+```
+
+如果你在 Zeabur 面板手动创建服务，也可以先添加 PostgreSQL 服务，再给 Bot 服务设置下面任一方式：
+
+1. 推荐：直接让 Zeabur 注入 PostgreSQL 变量。启动脚本支持标准 `POSTGRES_*` 名称，也支持模板中使用的 `ZEABUR_POSTGRES_*` 名称：
+
+```env
+POSTGRES_HOST=${POSTGRES_HOST}
+POSTGRES_PORT=${POSTGRES_PORT}
+POSTGRES_DATABASE=${POSTGRES_DATABASE}
+POSTGRES_USERNAME=${POSTGRES_USERNAME}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+```
+
+或者：
+
+```env
+ZEABUR_POSTGRES_HOST=${POSTGRES_HOST}
+ZEABUR_POSTGRES_PORT=${POSTGRES_PORT}
+ZEABUR_POSTGRES_DATABASE=${POSTGRES_DATABASE}
+ZEABUR_POSTGRES_USERNAME=${POSTGRES_USERNAME}
+ZEABUR_POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+```
+
+容器启动时会自动根据这些变量生成 `/app/pg.config.json`。
+
+2. 或者手动设置完整 JSON：
+
+```env
+JSBOT_PG_CONFIG_JSON={"host":"${POSTGRES_HOST}","port":5432,"database":"${POSTGRES_DATABASE}","user":"${POSTGRES_USERNAME}","password":"${POSTGRES_PASSWORD}","logging":false}
+```
 
 ## 必填环境变量
 
@@ -56,6 +122,26 @@ JSBOT_PG_CONFIG_JSON_BASE64=上一步输出的内容
 ```
 
 不设置 PostgreSQL 配置时，项目启动会记录 PostgreSQL 初始化失败，但代码中将其作为非致命错误处理，Bot 仍会继续运行；依赖 PostgreSQL 的功能不可用。
+
+在 Zeabur 上，如果 Bot 服务可以读取同项目 PostgreSQL 服务暴露的变量，也可以不设置 `JSBOT_PG_CONFIG_JSON_BASE64`。启动脚本会在发现以下变量时自动生成 `pg.config.json`：
+
+```env
+POSTGRES_HOST
+POSTGRES_PORT
+POSTGRES_DATABASE
+POSTGRES_USERNAME
+POSTGRES_PASSWORD
+```
+
+或对应的：
+
+```env
+ZEABUR_POSTGRES_HOST
+ZEABUR_POSTGRES_PORT
+ZEABUR_POSTGRES_DATABASE
+ZEABUR_POSTGRES_USERNAME
+ZEABUR_POSTGRES_PASSWORD
+```
 
 ## 首次部署注意事项
 
