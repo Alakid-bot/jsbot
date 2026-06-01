@@ -18,12 +18,11 @@ RUN apt-get update \
         python3 \
         make \
         g++ \
-    && rm -rf /var/lib/apt/lists/* \
-    && corepack enable
+    && rm -rf /var/lib/apt/lists/*
 
-COPY package.json pnpm-workspace.yaml ./
+COPY package.json ./
 
-RUN pnpm install --prod --no-frozen-lockfile
+RUN npm install --omit=dev --no-audit --no-fund
 
 COPY . .
 
@@ -37,4 +36,4 @@ USER node
 EXPOSE 8080
 
 ENTRYPOINT ["/app/deploy/zeabur/entrypoint.sh"]
-CMD ["pnpm", "start:web"]
+CMD ["node", "src/supervisor.js"]
