@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>JSBot 配置向导</title>
+        <link rel="stylesheet" href="./styles.css" />
+    </head>
+    <body>
+        <header class="hero">
+            <div>
+                <p class="eyebrow">JSBot Configuration Wizard</p>
+                <h1>Discord Bot 配置向导</h1>
+                <p class="hero-text">
+                    在浏览器中填写 Discord Token、服务器 ID、频道/角色 ID、FastGPT Key 等信息。Zeabur 在线模式可直接保存配置并重启 Bot。
+                </p>
+            </div>
+            <div class="hero-card">
+                <strong id="modeTitle">本地处理</strong>
+                <span id="modeDescription">本页面可本地生成配置；部署到 Zeabur 后会通过密码保护并保存到服务器持久化目录。</span>
+            </div>
+        </header>
+
+        <main class="layout">
+            <form id="configForm" class="panel form-panel" autocomplete="off">
+                <section class="section-card">
+                    <div class="section-heading">
+                        <span class="step">1</span>
+                        <div>
+                            <h2>基础信息</h2>
+                            <p>填写 Bot Token 和 Discord 服务器 ID。服务器 ID 需要在 Discord 开发者模式中复制。</p>
+                        </div>
+                    </div>
+
+                    <div class="grid two">
+                        <label class="field wide">
+                            <span>Discord Bot Token <em>必填</em></span>
+                            <div class="password-row">
+                                <input id="token" type="password" placeholder="YOUR_DISCORD_BOT_TOKEN" autocomplete="new-password" />
+                                <button class="ghost small" type="button" id="toggleToken">显示</button>
+                            </div>
+                            <small>使用 Discord Developer Portal → Bot → Token，不是 OAuth2 Client Secret。</small>
+                        </label>
+
+                        <label class="field">
+                            <span>Guild / 服务器 ID <em>必填</em></span>
+                            <input id="guildId" type="text" inputmode="numeric" placeholder="123456789012345678" />
+                        </label>
+
+                        <label class="field">
+                            <span>服务器类型</span>
+                            <select id="serverType">
+                                <option value="Main server">Main server</option>
+                                <option value="Sub server">Sub server</option>
+                            </select>
+                        </label>
+
+                        <label class="switch-field">
+                            <input id="commandsDeployed" type="checkbox" />
+                            <span>
+                                <strong>commandsDeployed</strong>
+                                <small>首次部署建议关闭，Bot 会尝试部署命令。</small>
+                            </span>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="section-card">
+                    <div class="section-heading">
+                        <span class="step">2</span>
+                        <div>
+                            <h2>角色与常用频道</h2>
+                            <p>每行一个 ID。暂时不用的频道可以留空，生成结果会写成 <code>null</code>。</p>
+                        </div>
+                    </div>
+
+                    <div class="grid two">
+                        <label class="field">
+                            <span>管理员角色 ID</span>
+                            <textarea id="administratorRoleIds" rows="3" placeholder="每行一个 ADMIN_ROLE_ID"></textarea>
+                        </label>
+                        <label class="field">
+                            <span>版主角色 ID</span>
+                            <textarea id="moderatorRoleIds" rows="3" placeholder="每行一个 MODERATOR_ROLE_ID"></textarea>
+                        </label>
+                        <label class="field">
+                            <span>处罚/管理日志 Thread ID</span>
+                            <input id="moderationLogThreadId" type="text" inputmode="numeric" />
+                        </label>
+                        <label class="field">
+                            <span>Thread 日志 Thread ID</span>
+                            <input id="threadLogThreadId" type="text" inputmode="numeric" />
+                        </label>
+                        <label class="field">
+                            <span>意见箱 Thread ID</span>
+                            <input id="opinionMailThreadId" type="text" inputmode="numeric" />
+                        </label>
+                        <label class="field">
+                            <span>处罚确认频道 ID</span>
+                            <input id="punishmentConfirmationChannelId" type="text" inputmode="numeric" />
+                        </label>
+                        <label class="field">
+                            <span>活动分类 Category ID</span>
+                            <input id="eventsCategoryId" type="text" inputmode="numeric" />
+                        </label>
+                        <label class="field">
+                            <span>自动删除频道 ID</span>
+                            <textarea id="autoDeleteChannels" rows="3" placeholder="每行一个频道 ID"></textarea>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="section-card">
+                    <div class="section-heading">
+                        <span class="step">3</span>
+                        <div>
+                            <h2>Forum / Thread 自动化</h2>
+                            <p>用于分析或清理不活跃帖子；不需要时保持 disabled。</p>
+                        </div>
+                    </div>
+
+                    <div class="grid three">
+                        <label class="field">
+                            <span>模式</span>
+                            <select id="automationMode">
+                                <option value="disabled">disabled</option>
+                                <option value="analysis">analysis</option>
+                                <option value="cleanup">cleanup</option>
+                            </select>
+                        </label>
+                        <label class="field">
+                            <span>阈值 threshold</span>
+                            <input id="automationThreshold" type="number" min="1" value="960" />
+                        </label>
+                        <label class="field">
+                            <span>日志 Thread ID</span>
+                            <input id="automationLogThreadId" type="text" inputmode="numeric" />
+                        </label>
+                        <label class="field wide">
+                            <span>白名单 Thread ID</span>
+                            <textarea id="automationWhitelistedThreads" rows="3" placeholder="每行一个不参与自动清理的 Thread ID"></textarea>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="section-card">
+                    <div class="section-heading">
+                        <span class="step">4</span>
+                        <div>
+                            <h2>身份组申请</h2>
+                            <p>如果暂时不用身份组申请功能，全部留空即可。</p>
+                        </div>
+                    </div>
+
+                    <div class="grid three">
+                        <label class="field"><span>申请日志 Thread ID</span><input id="roleLogThreadId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>创作者角色 ID</span><input id="creatorRoleId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>志愿者角色 ID</span><input id="volunteerRoleId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>议员角色 ID</span><input id="senatorRoleId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>上诉辩论角色 ID</span><input id="appealDebateRoleId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>答疑者角色 ID</span><input id="QAerRoleId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>议员申请 Forum ID</span><input id="senatorRoleForumId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>警告角色 ID</span><input id="WarnedRoleId" type="text" inputmode="numeric" /></label>
+                    </div>
+                </section>
+
+                <section class="section-card">
+                    <div class="section-heading">
+                        <span class="step">5</span>
+                        <div>
+                            <h2>FastGPT / AI 答疑</h2>
+                            <p>这个 Bot 当前配置 FastGPT Endpoint。OpenAI/DeepSeek 等模型 SK 通常放在 FastGPT 侧。</p>
+                        </div>
+                    </div>
+
+                    <label class="switch-field inline">
+                        <input id="fastgptEnabled" type="checkbox" />
+                        <span><strong>启用 FastGPT</strong><small>启用后至少配置一个 endpoint。</small></span>
+                    </label>
+
+                    <div id="fastgptEndpoints" class="endpoint-list"></div>
+
+                    <button id="addEndpoint" class="secondary" type="button">+ 添加 FastGPT Endpoint</button>
+                </section>
+
+                <section class="section-card">
+                    <div class="section-heading">
+                        <span class="step">6</span>
+                        <div>
+                            <h2>社区治理 / 投票系统</h2>
+                            <p>不使用法院/议会流程时保持关闭。</p>
+                        </div>
+                    </div>
+
+                    <label class="switch-field inline">
+                        <input id="courtEnabled" type="checkbox" />
+                        <span><strong>启用 courtSystem</strong><small>开启处罚上诉、提案、投票等流程。</small></span>
+                    </label>
+
+                    <div class="grid three">
+                        <label class="field"><span>法院频道 ID</span><input id="courtChannelId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>提案频道 ID</span><input id="motionChannelId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>辩论频道 ID</span><input id="debateChannelId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>appealDuration 毫秒</span><input id="appealDuration" type="number" min="0" value="259200000" /></label>
+                        <label class="field"><span>summitDuration 毫秒</span><input id="summitDuration" type="number" min="0" value="604800000" /></label>
+                        <label class="field"><span>requiredSupports</span><input id="requiredSupports" type="number" min="1" value="20" /></label>
+                        <label class="field"><span>辩论 Tag ID</span><input id="debateTagId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>提案 Tag ID</span><input id="motionTagId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>voteDuration 毫秒</span><input id="voteDuration" type="number" min="0" value="86400000" /></label>
+                    </div>
+                </section>
+
+                <section class="section-card">
+                    <div class="section-heading">
+                        <span class="step">7</span>
+                        <div>
+                            <h2>运行监控</h2>
+                            <p>用于展示 Bot 在线状态、Ping、角色人数等信息。</p>
+                        </div>
+                    </div>
+
+                    <label class="switch-field inline">
+                        <input id="monitorEnabled" type="checkbox" />
+                        <span><strong>启用 monitor</strong><small>开启后请填写监控频道和相关角色。</small></span>
+                    </label>
+
+                    <div class="grid two">
+                        <label class="field"><span>角色监控分类 ID</span><input id="roleMonitorCategoryId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>监控频道 ID</span><input id="monitorChannelId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>被监控角色 ID</span><input id="monitoredRoleId" type="text" inputmode="numeric" /></label>
+                        <label class="field"><span>角色显示名</span><input id="roleDisplayName" type="text" value="角色" /></label>
+                    </div>
+                </section>
+
+                <section class="section-card actions-card">
+                    <div class="section-heading compact">
+                        <span class="step">8</span>
+                        <div>
+                            <h2>导入 / 重置</h2>
+                            <p>可以导入已有 <code>config.json</code> 继续编辑。</p>
+                        </div>
+                    </div>
+                    <div class="actions-row">
+                        <label class="secondary file-button">
+                            导入 config.json
+                            <input id="importFile" type="file" accept="application/json,.json" />
+                        </label>
+                        <button id="resetForm" class="danger" type="button">重置表单</button>
+                    </div>
+                </section>
+
+                <section id="onlineActions" class="section-card actions-card" hidden>
+                    <div class="section-heading compact">
+                        <span class="step">9</span>
+                        <div>
+                            <h2>在线保存 / Bot 控制</h2>
+                            <p>在 Zeabur 域名访问时，配置会保存到服务器的持久化 <code>data/config.json</code>。</p>
+                        </div>
+                    </div>
+                    <div class="actions-row">
+                        <button id="saveServerConfig" class="primary" type="button">保存配置并重启 Bot</button>
+                        <button id="loadServerConfig" class="secondary" type="button">读取服务器配置</button>
+                        <button id="restartBot" class="secondary" type="button">仅重启 Bot</button>
+                    </div>
+                    <p id="serverStatus" class="copy-status" aria-live="polite"></p>
+                </section>
+            </form>
+
+            <aside class="panel output-panel">
+                <div class="sticky-output">
+                    <div class="output-header">
+                        <div>
+                            <p class="eyebrow">Generated Output</p>
+                            <h2>生成结果</h2>
+                        </div>
+                        <span id="statusPill" class="status-pill">等待填写</span>
+                    </div>
+
+                    <div id="warnings" class="warnings" hidden></div>
+
+                    <label class="field output-field">
+                        <span>config.json</span>
+                        <textarea id="configOutput" rows="16" readonly spellcheck="false"></textarea>
+                    </label>
+                    <div class="actions-row">
+                        <button id="copyConfig" class="secondary" type="button">复制 JSON</button>
+                        <button id="downloadConfig" class="secondary" type="button">下载 config.json</button>
+                    </div>
+
+                    <label class="field output-field">
+                        <span>JSBOT_CONFIG_JSON_BASE64</span>
+                        <textarea id="base64Output" rows="5" readonly spellcheck="false"></textarea>
+                    </label>
+                    <div class="actions-row">
+                        <button id="copyBase64" class="secondary" type="button">复制 Base64</button>
+                    </div>
+
+                    <label class="field output-field">
+                        <span>Zeabur 环境变量片段</span>
+                        <textarea id="envOutput" rows="5" readonly spellcheck="false"></textarea>
+                    </label>
+                    <div class="actions-row">
+                        <button id="copyEnv" class="primary" type="button">复制 Zeabur 环境变量</button>
+                    </div>
+
+                    <div id="runtimeStatus" class="runtime-status" hidden></div>
+                    <p id="copyStatus" class="copy-status" aria-live="polite"></p>
+                </div>
+            </aside>
+        </main>
+
+        <footer class="footer">
+            <p>
+                本地模式可复制 <code>JSBOT_CONFIG_JSON_BASE64</code> 到 Zeabur；在线模式可直接保存到服务器。不要把真实
+                <code>config.json</code>、Token 或 Key 提交到 GitHub。在线页面必须配置 <code>JSBOT_WEB_PASSWORD</code> 保护。
+            </p>
+        </footer>
+
+        <script src="./app.js"></script>
+    </body>
+</html>

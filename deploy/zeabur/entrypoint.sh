@@ -12,6 +12,8 @@ write_json_from_env() {
     raw_value="$(printenv "$raw_var_name" || true)"
     b64_value="$(printenv "$b64_var_name" || true)"
 
+    mkdir -p "$(dirname "$target_file")"
+
     if [ -n "$b64_value" ]; then
         printf '%s' "$b64_value" | base64 -d > "$target_file"
     elif [ -n "$raw_value" ]; then
@@ -88,9 +90,14 @@ NODE
 
 mkdir -p data logs data/backups data/qalog
 
-# Required application configuration. Prefer JSBOT_CONFIG_JSON_BASE64 when the
+: "${JSBOT_CONFIG_PATH:=data/config.json}"
+export JSBOT_CONFIG_PATH
+
+# Optional application configuration. Prefer JSBOT_CONFIG_JSON_BASE64 when the
 # Zeabur dashboard has trouble preserving quotes/newlines in large JSON values.
-write_json_from_env "config.json" "JSBOT_CONFIG_JSON" "JSBOT_CONFIG_JSON_BASE64" "true"
+# When omitted, the web configuration page can create data/config.json after the
+# service starts.
+write_json_from_env "$JSBOT_CONFIG_PATH" "JSBOT_CONFIG_JSON" "JSBOT_CONFIG_JSON_BASE64" "false"
 
 # Optional PostgreSQL configuration. The bot treats PostgreSQL startup failure
 # as non-fatal, but providing this enables PG-backed features.

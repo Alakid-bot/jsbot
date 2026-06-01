@@ -9,6 +9,7 @@
     },
     "scripts": {
         "start": "node src/index.js",
+        "start:web": "node src/supervisor.js",
         "test": "pnpm exec jest -c=jest.config.js --no-cache --passWithNoTests",
         "db": "./scripts/db_shell.sh"
     },
@@ -16,11 +17,6 @@
     "author": "",
     "license": "ISC",
     "description": "",
-    "pnpm": {
-        "onlyBuiltDependencies": [
-            "sqlite3"
-        ]
-    },
     "dependencies": {
         "@discordjs/rest": "^2.6.0",
         "axios": "^1.6.7",

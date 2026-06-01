@@ -5,6 +5,7 @@ import { join } from 'path';
 import { promisify } from 'util';
 import { EmbedFactory } from '../../factories/embedFactory.js';
 import { globalRequestQueue } from '../../utils/concurrency.js';
+import { getConfigPath } from '../../utils/configPaths.js';
 import { ErrorHandler } from '../../utils/errorHandler.js';
 import { logTime } from '../../utils/logger.js';
 import { pgSyncScheduler } from '../../schedulers/pgSyncScheduler.js';
@@ -201,7 +202,7 @@ class MonitorService {
         const result = await ErrorHandler.handleService(
             async () => {
                 // 读取配置文件
-                const configPath = join(process.cwd(), 'config.json');
+                const configPath = getConfigPath();
                 const configData = await readFile(configPath, 'utf8');
                 const config = JSON.parse(configData);
 

@@ -1,14 +1,14 @@
 import { ActivityType, Collection, Events } from 'discord.js';
-import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { globalTaskScheduler } from '../handlers/scheduler.js';
 import { loadEvents } from '../index.js';
+import { readBotConfig } from '../utils/configPaths.js';
 import { loadCommandFiles } from '../utils/helper.js';
 import { logTime } from '../utils/logger.js';
 
 // 添加配置文件加载
-const config = JSON.parse(readFileSync(join(process.cwd(), 'config.json'), 'utf8'));
+const config = readBotConfig();
 
 // 将初始化逻辑抽取为单独的函数
 async function initializeClient(client) {

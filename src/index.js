@@ -1,5 +1,5 @@
 // Node.js模块
-import { readFileSync, readdirSync, writeFileSync } from 'fs';
+import { readdirSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -9,6 +9,7 @@ import { Client, Collection, Events, GatewayIntentBits, Options, REST, Routes } 
 
 // 本地工具函数
 import GuildManager from './utils/guildManager.js';
+import { getConfigPath, readBotConfig } from './utils/configPaths.js';
 import { getVersionInfo, handleDiscordError, loadCommandFiles } from './utils/helper.js';
 import { logTime } from './utils/logger.js';
 
@@ -21,7 +22,8 @@ import { delay, globalRequestQueue } from './utils/concurrency.js';
 import { globalLockManager } from './utils/lockManager.js';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
-const config = JSON.parse(readFileSync(join(process.cwd(), 'config.json'), 'utf8'));
+const configPath = getConfigPath();
+const config = readBotConfig();
 
 // 初始化客户端
 const client = new Client({
@@ -135,7 +137,7 @@ const deployCommands = async (client, commands, config) => {
     );
 
     if (configUpdated) {
-        writeFileSync('./config.json', JSON.stringify(config, null, 4));
+        writeFileSync(configPath, JSON.stringify(config, null, 4));
     }
 };
 

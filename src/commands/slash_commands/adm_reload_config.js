@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { getConfigPath } from '../../utils/configPaths.js';
 import { checkAndHandlePermission, handleCommandError, measureTime } from '../../utils/helper.js';
 import { logTime } from '../../utils/logger.js';
 
@@ -26,7 +26,7 @@ export default {
             });
 
             // 读取最新的配置文件
-            const configPath = join(process.cwd(), 'config.json');
+            const configPath = getConfigPath();
             let config;
 
             try {

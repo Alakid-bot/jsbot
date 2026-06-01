@@ -21,7 +21,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && corepack enable
 
-COPY package.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 RUN pnpm install --prod --no-frozen-lockfile
 
@@ -33,6 +33,8 @@ RUN chmod +x /app/deploy/zeabur/entrypoint.sh \
 
 USER node
 
-# This project is a Discord bot / background worker. It does not expose an HTTP port.
+# The supervisor exposes the protected web configuration page and manages the bot process.
+EXPOSE 8080
+
 ENTRYPOINT ["/app/deploy/zeabur/entrypoint.sh"]
-CMD ["pnpm", "start"]
+CMD ["pnpm", "start:web"]

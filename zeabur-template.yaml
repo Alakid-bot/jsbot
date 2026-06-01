@@ -9,10 +9,10 @@ spec:
     - Tool
     - Database
   variables:
-    - key: JSBOT_CONFIG_JSON_BASE64
+    - key: JSBOT_WEB_PASSWORD
       type: PASSWORD
-      name: Bot config JSON base64
-      description: Base64 encoded content of config.json. Generate with `base64 -w 0 config.json`.
+      name: Web configuration password
+      description: Password for the public Zeabur configuration page. Username is admin by default.
     - key: TZ
       type: STRING
       name: Time zone
@@ -25,13 +25,7 @@ spec:
     - `jsbot`: the Discord bot service built from `Alakid-bot/jsbot:main`.
     - `postgresql`: a PostgreSQL 16 database with persistent storage.
 
-    Before deployment, prepare a real `config.json`, then generate:
-
-    ```bash
-    base64 -w 0 config.json
-    ```
-
-    Put the output into `JSBOT_CONFIG_JSON_BASE64`.
+    After deployment, open the Zeabur domain for the `jsbot` service. Log in with username `admin` and the `JSBOT_WEB_PASSWORD` you set, then fill and save the bot configuration.
 
     PostgreSQL is created automatically. The bot service receives the database connection through Zeabur variables and generates `/app/pg.config.json` at startup.
   services:
@@ -106,13 +100,23 @@ spec:
             dir: /app/data
           - id: logs
             dir: /app/logs
+        ports:
+          - id: web
+            port: 8080
+            type: HTTP
         env:
           NODE_ENV:
             default: production
           TZ:
             default: ${TZ}
-          JSBOT_CONFIG_JSON_BASE64:
-            default: ${JSBOT_CONFIG_JSON_BASE64}
+          PORT:
+            default: "8080"
+          JSBOT_WEB_USERNAME:
+            default: admin
+          JSBOT_WEB_PASSWORD:
+            default: ${JSBOT_WEB_PASSWORD}
+          JSBOT_CONFIG_PATH:
+            default: /app/data/config.json
           JSBOT_PG_POOL_MAX:
             default: "20"
           JSBOT_PG_IDLE_TIMEOUT_MILLIS:

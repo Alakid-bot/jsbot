@@ -127,23 +127,32 @@ tail -f monitor.log
 
 ## ☁️ Zeabur 部署
 
-本仓库已提供 Zeabur 部署模板，适合将 Bot 作为长期运行的后台 Worker 部署：
+本仓库已提供 Zeabur 部署模板。容器会同时启动受密码保护的 Web 配置页和 Bot 子进程，适合在 Zeabur 域名中直接填写配置：
 
 - 根目录 `Dockerfile`：Zeabur 会自动识别并按 Docker 方式构建。
 - 根目录 `.dockerignore`：避免把本地密钥、数据库和日志打包进镜像。
 - 根目录 `zbpack.json`：显式指定使用根目录 `Dockerfile`。
 - 根目录 `zeabur-template.yaml`：一键创建 Bot 服务和 PostgreSQL 服务。
+- `deploy/config-wizard/index.html`：网页配置向导；本地打开时生成配置，Zeabur 域名访问时可直接保存配置并重启 Bot。
 - `deploy/zeabur/env.example`：Zeabur 环境变量模板。
 - `deploy/zeabur/config.zeabur.example.json`：可复制填写的 `config.json` 示例。
 - `deploy/zeabur/pg.config.zeabur.example.json`：可选 PostgreSQL 配置示例。
-- `deploy/zeabur/entrypoint.sh`：容器启动时根据环境变量生成运行配置。
+- `src/supervisor.js`：启动 Web 配置页并管理 Bot 子进程。
+- `deploy/zeabur/entrypoint.sh`：容器启动时根据环境变量生成可选初始配置和 PostgreSQL 配置。
 
 推荐在 Zeabur 的环境变量中设置：
 
 ```env
-JSBOT_CONFIG_JSON_BASE64=BASE64_ENCODED_CONFIG_JSON
+JSBOT_WEB_USERNAME=admin
+JSBOT_WEB_PASSWORD=CHANGE_ME_TO_A_LONG_RANDOM_PASSWORD
+PORT=8080
+JSBOT_CONFIG_PATH=/app/data/config.json
 NODE_ENV=production
 ```
+
+部署后给 `jsbot` 服务绑定 Zeabur 域名，打开域名后使用 Basic Auth 登录：用户名默认 `admin`，密码为 `JSBOT_WEB_PASSWORD`。然后在网页中填写 Discord Token、服务器 ID、频道/角色 ID、FastGPT Key 等信息，点击“保存配置并重启 Bot”。配置会保存到持久化的 `/app/data/config.json`。
+
+如果你想预置初始配置，也可以直接用浏览器打开 `deploy/config-wizard/index.html`，填写信息后复制页面生成的 `JSBOT_CONFIG_JSON_BASE64` 到 Zeabur 环境变量。
 
 如需启用 PostgreSQL 相关功能，再设置：
 
@@ -153,7 +162,7 @@ JSBOT_PG_CONFIG_JSON_BASE64=BASE64_ENCODED_PG_CONFIG_JSON
 
 如果使用 `zeabur-template.yaml` 一键部署，则会同时创建 PostgreSQL 16 服务；Bot 启动时会根据 Zeabur 暴露的 `POSTGRES_HOST`、`POSTGRES_PORT`、`POSTGRES_DATABASE`、`POSTGRES_USERNAME`、`POSTGRES_PASSWORD` 自动生成 `pg.config.json`，通常不需要手动设置 `JSBOT_PG_CONFIG_JSON_BASE64`。
 
-本项目是 Discord Bot，不是 HTTP Web 服务，通常不需要绑定域名或暴露端口。详细步骤见 `deploy/zeabur/README.md`。
+当前 Zeabur 模板会暴露 `8080` HTTP 端口用于设置页面。详细步骤见 `deploy/zeabur/README.md`。
 
 ---
 
