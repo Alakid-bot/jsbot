@@ -125,6 +125,35 @@ tail -f monitor.log
 
 ---
 
+## ☁️ Zeabur 部署
+
+本仓库已提供 Zeabur 部署模板，适合将 Bot 作为长期运行的后台 Worker 部署：
+
+- 根目录 `Dockerfile`：Zeabur 会自动识别并按 Docker 方式构建。
+- 根目录 `.dockerignore`：避免把本地密钥、数据库和日志打包进镜像。
+- 根目录 `zbpack.json`：显式指定使用根目录 `Dockerfile`。
+- `deploy/zeabur/env.example`：Zeabur 环境变量模板。
+- `deploy/zeabur/config.zeabur.example.json`：可复制填写的 `config.json` 示例。
+- `deploy/zeabur/pg.config.zeabur.example.json`：可选 PostgreSQL 配置示例。
+- `deploy/zeabur/entrypoint.sh`：容器启动时根据环境变量生成运行配置。
+
+推荐在 Zeabur 的环境变量中设置：
+
+```env
+JSBOT_CONFIG_JSON_BASE64=BASE64_ENCODED_CONFIG_JSON
+NODE_ENV=production
+```
+
+如需启用 PostgreSQL 相关功能，再设置：
+
+```env
+JSBOT_PG_CONFIG_JSON_BASE64=BASE64_ENCODED_PG_CONFIG_JSON
+```
+
+本项目是 Discord Bot，不是 HTTP Web 服务，通常不需要绑定域名或暴露端口。详细步骤见 `deploy/zeabur/README.md`。
+
+---
+
 ## 📁 项目结构
 
 ```

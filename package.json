@@ -3,6 +3,10 @@
     "version": "3.2.0",
     "main": "src/index.js",
     "type": "module",
+    "packageManager": "pnpm@11.1.2",
+    "engines": {
+        "node": ">=18.0.0"
+    },
     "scripts": {
         "start": "node src/index.js",
         "test": "pnpm exec jest -c=jest.config.js --no-cache --passWithNoTests",

@@ -1,0 +1,61 @@
+{
+    "token": "YOUR_DISCORD_BOT_TOKEN",
+    "guilds": {
+        "YOUR_GUILD_ID": {
+            "serverType": "Main server",
+            "commandsDeployed": false,
+            "moderationLogThreadId": "DISCORD_CHANNEL_ID_OR_NULL",
+            "threadLogThreadId": "DISCORD_CHANNEL_ID_OR_NULL",
+            "opinionMailThreadId": "DISCORD_CHANNEL_ID_OR_NULL",
+            "punishmentConfirmationChannelId": "DISCORD_CHANNEL_ID_OR_NULL",
+            "AdministratorRoleIds": [
+                "ADMIN_ROLE_ID"
+            ],
+            "ModeratorRoleIds": [
+                "MODERATOR_ROLE_ID"
+            ],
+            "eventsCategoryId": "DISCORD_CATEGORY_ID_OR_NULL",
+            "automation": {
+                "mode": "disabled",
+                "threshold": 960,
+                "logThreadId": "DISCORD_CHANNEL_ID_OR_NULL",
+                "whitelistedThreads": []
+            },
+            "roleApplication": {
+                "logThreadId": null,
+                "creatorRoleId": null,
+                "volunteerRoleId": null,
+                "senatorRoleId": null,
+                "appealDebateRoleId": null,
+                "QAerRoleId": null,
+                "senatorRoleForumId": null,
+                "WarnedRoleId": null
+            },
+            "fastgpt": {
+                "enabled": false,
+                "endpoints": [],
+                "endpointNames": {}
+            },
+            "courtSystem": {
+                "enabled": false,
+                "courtChannelId": null,
+                "motionChannelId": null,
+                "debateChannelId": null,
+                "appealDuration": 259200000,
+                "summitDuration": 604800000,
+                "requiredSupports": 20,
+                "debateTagId": null,
+                "motionTagId": null,
+                "voteDuration": 86400000
+            },
+            "monitor": {
+                "enabled": false,
+                "roleMonitorCategoryId": null,
+                "monitorChannelId": null,
+                "monitoredRoleId": null,
+                "roleDisplayName": "角色"
+            },
+            "autoDeleteChannels": []
+        }
+    }
+}

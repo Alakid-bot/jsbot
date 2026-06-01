@@ -1,0 +1,11 @@
+{
+    "host": "POSTGRES_HOST",
+    "port": 5432,
+    "database": "POSTGRES_DATABASE",
+    "user": "POSTGRES_USER",
+    "password": "POSTGRES_PASSWORD",
+    "max": 20,
+    "logging": false,
+    "idleTimeoutMillis": 30000,
+    "connectionTimeoutMillis": 5000
+}

@@ -1,0 +1,29 @@
+#!/bin/sh
+# Local pre-push guard for this fork.
+# Install with:
+#   cp deploy/git/pre-push-origin-only.sample .git/hooks/pre-push
+#   chmod +x .git/hooks/pre-push
+
+remote_name="$1"
+remote_url="$2"
+allowed_remote="origin"
+allowed_url_https="https://github.com/Alakid-bot/jsbot.git"
+allowed_url_ssh="git@github.com:Alakid-bot/jsbot.git"
+
+if [ "$remote_name" != "$allowed_remote" ]; then
+    echo "Blocked push: remote must be '$allowed_remote', got '$remote_name'." >&2
+    exit 1
+fi
+
+case "$remote_url" in
+    "$allowed_url_https"|"$allowed_url_ssh")
+        ;;
+    *)
+        echo "Blocked push: remote URL is not your fork." >&2
+        echo "Remote URL: $remote_url" >&2
+        echo "Allowed: $allowed_url_https or $allowed_url_ssh" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
