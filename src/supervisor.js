@@ -1,11 +1,13 @@
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { createServer } from 'http';
 import { spawn } from 'child_process';
+import { REST, Routes } from 'discord.js';
 import { existsSync } from 'fs';
 import { mkdir, readFile, rename, stat, writeFile } from 'fs/promises';
 import { dirname, extname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { getConfigPath } from './utils/configPaths.js';
+import { loadCommandFiles } from './utils/helper.js';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(currentDir, '..');
@@ -408,6 +410,92 @@ async function validateDiscordToken(token) {
     }
 }
 
+async function fetchDiscordApplicationId(token) {
+    const timeout = createRequestTimeout(10000);
+    try {
+        const res = await fetch('https://discord.com/api/v10/oauth2/applications/@me', {
+            headers: { 'Authorization': `Bot ${token}` },
+            signal: timeout.signal,
+        });
+        if (!res.ok) {
+            if (res.status === 401) {
+                throw new Error('Discord Bot Token 无效（401）');
+            }
+            if (res.status === 403) {
+                throw new Error('Discord Bot Token 无权读取应用信息（403）');
+            }
+            throw new Error(`Discord API 返回 ${res.status}`);
+        }
+        const data = await res.json();
+        const applicationId = data?.id;
+        if (!applicationId || !/^\d{17,20}$/.test(applicationId)) {
+            throw new Error('无法从 Discord API 获取应用 ID');
+        }
+        return applicationId;
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            throw new Error('读取 Discord 应用信息超时');
+        }
+        throw error;
+    } finally {
+        timeout.clear();
+    }
+}
+
+function resolveSyncGuild(config, requestedGuildId) {
+    const guildIds = Object.keys(config.guilds || {});
+    const guildId = requestedGuildId || (guildIds.length === 1 ? guildIds[0] : '');
+
+    if (!guildId) {
+        throw Object.assign(new Error('缺少要同步的服务器 ID'), { statusCode: 400 });
+    }
+    if (!/^\d{17,20}$/.test(guildId)) {
+        throw Object.assign(new Error(`服务器 ID 不像标准 Discord ID: ${guildId}`), { statusCode: 400 });
+    }
+    if (!config.guilds?.[guildId]) {
+        throw Object.assign(new Error(`配置中不存在服务器 ${guildId}`), { statusCode: 400 });
+    }
+
+    return guildId;
+}
+
+async function syncDiscordCommands(config, guildId) {
+    const commandsPath = join(currentDir, 'commands');
+    const commands = await loadCommandFiles(commandsPath);
+    const commandData = Array.from(commands.values()).map(command => command.data.toJSON());
+
+    if (commandData.length === 0) {
+        throw new Error('没有找到可同步的 Discord 指令');
+    }
+
+    const applicationId = await fetchDiscordApplicationId(config.token);
+    const rest = new REST({ version: '10' }).setToken(config.token);
+
+    try {
+        const deployedCommands = await rest.put(
+            Routes.applicationGuildCommands(applicationId, guildId),
+            { body: commandData },
+        );
+
+        return {
+            applicationId,
+            commandCount: Array.isArray(deployedCommands) ? deployedCommands.length : commandData.length,
+            localCommandCount: commandData.length,
+        };
+    } catch (error) {
+        if (error.status === 401 || error.code === 0) {
+            throw new Error('Discord Bot Token 无效，无法同步指令');
+        }
+        if (error.status === 403 || error.code === 50001 || error.code === 50013) {
+            throw new Error('Bot 无权访问该服务器或缺少注册指令权限，请确认 OAuth2 邀请包含 applications.commands');
+        }
+        if (error.status === 404 || error.code === 10004) {
+            throw new Error('Discord 找不到该服务器，请确认 Guild ID 正确且 Bot 已加入服务器');
+        }
+        throw new Error(`Discord 指令同步失败: ${error.message || '未知错误'}`);
+    }
+}
+
 async function validateDiscordGuildAccess(token, guildId) {
     const timeout = createRequestTimeout(10000);
     try {
@@ -765,6 +853,33 @@ async function handleApi(req, res, pathname) {
         const config = payload.config || payload;
         const result = await runConfigValidation(config);
         sendJson(res, 200, result);
+        return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/commands/sync') {
+        const body = await readRequestBody(req);
+        const payload = JSON.parse(body || '{}');
+        const config = payload.config || await readConfigIfExists();
+        if (!config) {
+            sendJson(res, 400, { error: '请先填写并保存基础配置' });
+            return;
+        }
+
+        validateConfig(config);
+        const guildId = resolveSyncGuild(config, payload.guildId);
+        const result = await syncDiscordCommands(config, guildId);
+
+        config.guilds[guildId].commandsDeployed = true;
+        await writeConfig(config);
+
+        sendJson(res, 200, {
+            ok: true,
+            guildId,
+            commandCount: result.commandCount,
+            localCommandCount: result.localCommandCount,
+            commandsDeployed: true,
+            status: await getStatus(),
+        });
         return;
     }
 
