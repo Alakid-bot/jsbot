@@ -223,6 +223,295 @@ function validateConfig(config) {
     }
 }
 
+// SSRF guard
+function isPrivateIp(hostname) {
+    if (/^localhost$/i.test(hostname)) return true;
+    if (/^\[?::1\]?$/i.test(hostname)) return true;
+    if (/^\[?fc[0-9a-f]{2}:/i.test(hostname) || /^\[?fd[0-9a-f]{2}:/i.test(hostname)) return true;
+    if (/^\[?fe80:/i.test(hostname)) return true;
+    if (/^127\./.test(hostname)) return true;
+    if (/^10\./.test(hostname)) return true;
+    if (/^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname)) return true;
+    if (/^192\.168\./.test(hostname)) return true;
+    if (/^169\.254\./.test(hostname)) return true;
+    if (/^22[4-9]\./.test(hostname) || /^2[3-5][0-9]\./.test(hostname)) return true;
+    if (/\.(local|internal|intranet|lan|corp|home|private|svc|cluster|service)$/i.test(hostname)) return true;
+    return false;
+}
+
+function assertSafeUrl(rawUrl, label = 'URL') {
+    let url;
+    try {
+        url = new URL(rawUrl);
+    } catch (_error) {
+        throw Object.assign(new Error(`${label} 格式不正确`), { statusCode: 400 });
+    }
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        throw Object.assign(new Error(`${label} 仅支持 http/https`), { statusCode: 400 });
+    }
+
+    if (isPrivateIp(url.hostname)) {
+        throw Object.assign(new Error(`${label} 不能指向内部地址或 localhost`), { statusCode: 400 });
+    }
+
+    if (process.env.NODE_ENV === 'production' && url.protocol === 'http:') {
+        throw Object.assign(new Error(`${label} 在生产环境必须使用 HTTPS`), { statusCode: 400 });
+    }
+
+    return url;
+}
+
+function normalizeAiError(error, fallback = '请求失败') {
+    const message = error?.message || String(error);
+    if (/fetch|network|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|socket|timeout/i.test(message)) {
+        return '网络连接失败，请检查接口地址和本地网络';
+    }
+    if (/401|403|Unauthorized|Forbidden|invalid.*api.*key|authentication|auth/i.test(message)) {
+        return '认证失败（401/403），请检查 API Key 是否正确';
+    }
+    if (/404|Not Found/i.test(message)) {
+        return '接口地址不存在（404），请检查 URL';
+    }
+    if (/429|Too Many Requests|rate.*limit/i.test(message)) {
+        return '请求过于频繁（429），请稍后再试';
+    }
+    if (/5\d{2}|Server Error|Internal/i.test(message)) {
+        return '服务端错误（5xx），请稍后再试';
+    }
+    if (/abort|AbortError/i.test(message)) {
+        return '请求超时，请检查接口响应速度';
+    }
+    if (/SSRF|内部地址|localhost|不能指向/i.test(message)) {
+        return message;
+    }
+    return `${fallback}：${message}`;
+}
+
+function deriveModelsUrl(baseUrl) {
+    const trimmed = baseUrl.trim().replace(/\/+$/, '');
+    if (/\/chat\/completions$/i.test(trimmed)) {
+        return trimmed.replace(/\/chat\/completions$/i, '/models');
+    }
+    if (/\/v\d+$/i.test(trimmed)) {
+        return `${trimmed}/models`;
+    }
+    return `${trimmed}/models`;
+}
+
+function createRequestTimeout(milliseconds) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), milliseconds);
+    return {
+        signal: controller.signal,
+        clear: () => clearTimeout(timer),
+    };
+}
+
+async function fetchAiModels({ url, key, provider }) {
+    assertSafeUrl(url, '接口地址');
+    const isFastGPT = provider === 'fastgpt';
+    if (isFastGPT) {
+        const modelsUrl = deriveModelsUrl(url);
+        assertSafeUrl(modelsUrl, '模型列表地址');
+        try {
+            const timeout = createRequestTimeout(10000);
+            const res = await fetch(modelsUrl, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${key}` },
+                signal: timeout.signal,
+            });
+            timeout.clear();
+            if (res.ok) {
+                const data = await res.json();
+                const models = Array.isArray(data?.data) ? data.data.map((m) => m.id || m.model || m.name || m).filter(Boolean) : [];
+                if (models.length) return { models, source: 'fastgpt/models' };
+            }
+        } catch (_error) {
+            // FastGPT endpoints usually do not expose a models endpoint; manual entry is expected.
+        }
+        return { models: [], unsupported: true, message: 'FastGPT 不支持自动获取模型，请手动填写或在服务商页面复制模型名' };
+    }
+
+    const modelsUrl = deriveModelsUrl(url);
+    assertSafeUrl(modelsUrl, '模型列表地址');
+    const timeout = createRequestTimeout(15000);
+    try {
+        const res = await fetch(modelsUrl, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${key}` },
+            signal: timeout.signal,
+        });
+        if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            throw Object.assign(new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`), { statusCode: res.status });
+        }
+        const data = await res.json();
+        const models = Array.isArray(data?.data) ? data.data.map((m) => m.id || m.model || m.name || m).filter(Boolean) : [];
+        return { models };
+    } catch (error) {
+        throw new Error(normalizeAiError(error, '获取模型列表失败'));
+    } finally {
+        timeout.clear();
+    }
+}
+
+async function testAiConnectivity({ url, key, provider, model }) {
+    assertSafeUrl(url, '接口地址');
+    const isFastGPT = provider === 'fastgpt';
+    const body = isFastGPT
+        ? JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], stream: false })
+        : JSON.stringify({ model: model || 'default', messages: [{ role: 'user', content: 'hi' }], max_tokens: 1, temperature: 0, stream: false });
+
+    const timeout = createRequestTimeout(15000);
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${key}`,
+                'Content-Type': 'application/json',
+            },
+            body,
+            signal: timeout.signal,
+        });
+        if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            throw Object.assign(new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`), { statusCode: res.status });
+        }
+        const data = await res.json().catch(() => null);
+        return { ok: true, responseType: data?.choices ? 'chat-completion' : 'unknown' };
+    } catch (error) {
+        throw new Error(normalizeAiError(error, '连接测试失败'));
+    } finally {
+        timeout.clear();
+    }
+}
+
+async function validateDiscordToken(token) {
+    const timeout = createRequestTimeout(10000);
+    try {
+        const res = await fetch('https://discord.com/api/v10/users/@me', {
+            headers: { 'Authorization': `Bot ${token}` },
+            signal: timeout.signal,
+        });
+        if (!res.ok) {
+            if (res.status === 401) return { ok: false, error: 'Discord Token 无效（401）' };
+            if (res.status === 403) return { ok: false, error: 'Discord Token 权限不足（403）' };
+            return { ok: false, error: `Discord API 返回 ${res.status}` };
+        }
+        const data = await res.json().catch(() => null);
+        return { ok: true, username: data?.username || null };
+    } catch (error) {
+        return { ok: false, error: normalizeAiError(error, '无法连接到 Discord API') };
+    } finally {
+        timeout.clear();
+    }
+}
+
+async function validateDiscordGuildAccess(token, guildId) {
+    const timeout = createRequestTimeout(10000);
+    try {
+        const res = await fetch(`https://discord.com/api/v10/guilds/${encodeURIComponent(guildId)}`, {
+            headers: { 'Authorization': `Bot ${token}` },
+            signal: timeout.signal,
+        });
+        if (!res.ok) {
+            if (res.status === 404) return { ok: false, error: '服务器不存在，或 Bot 尚未加入该服务器' };
+            if (res.status === 403) return { ok: false, error: 'Bot 没有访问该服务器的权限' };
+            return { ok: false, error: `Discord API 返回 ${res.status}` };
+        }
+        const data = await res.json().catch(() => null);
+        return { ok: true, name: data?.name || null };
+    } catch (error) {
+        return { ok: false, error: normalizeAiError(error, '无法连接到 Discord API') };
+    } finally {
+        timeout.clear();
+    }
+}
+
+async function runConfigValidation(config) {
+    validateConfig(config);
+
+    const checks = [];
+    const token = config.token;
+
+    if (!/^\s*[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\s*$/.test(token)) {
+        checks.push({ name: 'Discord Token 格式', ok: false, error: 'Token 格式不像是标准 Discord Bot Token' });
+    } else {
+        checks.push({ name: 'Discord Token 格式', ok: true });
+    }
+
+    const guildIds = Object.keys(config.guilds);
+    for (const guildId of guildIds) {
+        if (!/^\d{17,20}$/.test(guildId)) {
+            checks.push({ name: `服务器 ID ${guildId}`, ok: false, error: '不像标准 Discord ID' });
+        } else {
+            checks.push({ name: `服务器 ID ${guildId}`, ok: true });
+        }
+    }
+
+    const discordTokenCheck = await validateDiscordToken(token);
+    checks.push({ name: 'Discord Token 有效性', ok: discordTokenCheck.ok, error: discordTokenCheck.error });
+
+    for (const guildId of guildIds) {
+        const guildCheck = await validateDiscordGuildAccess(token, guildId);
+        checks.push({ name: `Discord 服务器 ${guildId} 访问权限`, ok: guildCheck.ok, error: guildCheck.error });
+    }
+
+    for (const guildId of guildIds) {
+        const g = config.guilds[guildId];
+        if (g.fastgpt?.enabled) {
+            const eps = g.fastgpt.endpoints || [];
+            if (!eps.length) {
+                checks.push({ name: 'AI 答疑接口', ok: false, error: '已启用 AI 答疑，但没有配置接口' });
+            } else {
+                let valid = 0;
+                for (const ep of eps) {
+                    if (ep.url && ep.key) {
+                        if (ep.provider === 'openai-compatible' && !ep.model) continue;
+                        valid += 1;
+                    }
+                }
+                if (valid === 0) {
+                    checks.push({ name: 'AI 答疑接口', ok: false, error: '已启用 AI 答疑，但没有有效接口（缺少 URL、Key 或模型名）' });
+                } else {
+                    checks.push({ name: 'AI 答疑接口', ok: true });
+                }
+            }
+        }
+        if (g.courtSystem?.enabled) {
+            const missing = [];
+            if (!g.courtSystem.courtChannelId) missing.push('法院频道 ID');
+            if (!g.courtSystem.motionChannelId) missing.push('提案频道 ID');
+            if (!g.courtSystem.debateChannelId) missing.push('辩论频道 ID');
+            if (!g.courtSystem.debateTagId) missing.push('辩论 Tag ID');
+            if (!g.courtSystem.motionTagId) missing.push('提案 Tag ID');
+            if (missing.length) {
+                checks.push({ name: '社区治理必填项', ok: false, error: `缺少 ${missing.join('、')}` });
+            } else {
+                checks.push({ name: '社区治理必填项', ok: true });
+            }
+        }
+        if (g.monitor?.enabled) {
+            if (!g.monitor.roleMonitorCategoryId || !g.monitor.monitoredRoleId) {
+                checks.push({ name: '运行监控必填项', ok: false, error: '缺少角色监控分类 ID 或被监控角色 ID' });
+            } else {
+                checks.push({ name: '运行监控必填项', ok: true });
+            }
+        }
+        if (g.selfServiceRoles?.enabled) {
+            const groups = g.selfServiceRoles.groups || [];
+            if (!groups.length) {
+                checks.push({ name: '自助身份组', ok: false, error: '已启用自助身份组，但没有配置分组' });
+            } else {
+                checks.push({ name: '自助身份组', ok: true });
+            }
+        }
+    }
+
+    return { checks };
+}
+
 async function readConfigIfExists() {
     if (!existsSync(configPath)) {
         return null;
@@ -433,6 +722,49 @@ async function handleApi(req, res, pathname) {
     if (req.method === 'POST' && pathname === '/api/restart') {
         await restartBot('web-restart');
         sendJson(res, 200, { ok: true, status: await getStatus() });
+        return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/ai/models') {
+        const body = await readRequestBody(req);
+        const payload = JSON.parse(body || '{}');
+        const { url, key, provider } = payload;
+        if (!url || typeof url !== 'string') {
+            sendJson(res, 400, { error: '缺少接口地址' });
+            return;
+        }
+        if (!key || typeof key !== 'string') {
+            sendJson(res, 400, { error: '缺少 API Key' });
+            return;
+        }
+        const result = await fetchAiModels({ url, key, provider: provider || 'custom' });
+        sendJson(res, 200, result);
+        return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/ai/test') {
+        const body = await readRequestBody(req);
+        const payload = JSON.parse(body || '{}');
+        const { url, key, provider, model } = payload;
+        if (!url || typeof url !== 'string') {
+            sendJson(res, 400, { error: '缺少接口地址' });
+            return;
+        }
+        if (!key || typeof key !== 'string') {
+            sendJson(res, 400, { error: '缺少 API Key' });
+            return;
+        }
+        const result = await testAiConnectivity({ url, key, provider: provider || 'custom', model });
+        sendJson(res, 200, result);
+        return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/config/validate') {
+        const body = await readRequestBody(req);
+        const payload = JSON.parse(body || '{}');
+        const config = payload.config || payload;
+        const result = await runConfigValidation(config);
+        sendJson(res, 200, result);
         return;
     }
 

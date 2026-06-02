@@ -122,6 +122,12 @@
         return `${trimmed}/v1/chat/completions`;
     }
 
+    function normalizeEndpointUrlForRequest(row) {
+        const provider = row.querySelector('.endpoint-provider').value.trim() || 'fastgpt';
+        const rawUrl = row.querySelector('.endpoint-url').value.trim();
+        return provider === 'openai-compatible' ? normalizeOpenAICompatibleUrl(rawUrl) : rawUrl;
+    }
+
     function endpointPreset(type) {
         if (type === 'openai') {
             return {
@@ -342,6 +348,12 @@
                 <input class="endpoint-model" type="text" placeholder="gpt-4o-mini / deepseek-chat" />
                 <small>FastGPT 可留空；OpenAI 兼容通常必填。</small>
             </label>
+            <label class="field endpoint-model-field" hidden>
+                <span>模型选择</span>
+                <select class="endpoint-model-select">
+                    <option value="">-- 选择模型 --</option>
+                </select>
+            </label>
             <label class="field">
                 <span>内容格式</span>
                 <select class="endpoint-content-format">
@@ -355,6 +367,11 @@
                 <span>显示名称</span>
                 <input class="endpoint-name" type="text" placeholder="默认 AI 答疑" />
             </label>
+            <div class="endpoint-actions-row">
+                <button class="secondary small fetch-models" type="button">获取模型</button>
+                <button class="secondary small test-connection" type="button">测试连接</button>
+                <span class="endpoint-status" hidden></span>
+            </div>
             <button class="danger remove-endpoint" type="button">删除</button>
         `;
 
@@ -374,7 +391,114 @@
             toggleBtn.textContent = keyInput.type === 'password' ? '显示' : '隐藏';
         });
 
+        const modelSelect = row.querySelector('.endpoint-model-select');
+        modelSelect.addEventListener('change', () => {
+            if (modelSelect.value) {
+                row.querySelector('.endpoint-model').value = modelSelect.value;
+                renderOutput();
+            }
+        });
+
+        const fetchBtn = row.querySelector('.fetch-models');
+        fetchBtn.addEventListener('click', () => handleFetchModels(row));
+
+        const testBtn = row.querySelector('.test-connection');
+        testBtn.addEventListener('click', () => handleTestConnection(row));
+
         return row;
+    }
+
+    async function handleFetchModels(row) {
+        const url = normalizeEndpointUrlForRequest(row);
+        const key = row.querySelector('.endpoint-key').value.trim();
+        const provider = row.querySelector('.endpoint-provider').value;
+        const modelField = row.querySelector('.endpoint-model-field');
+        const modelSelect = row.querySelector('.endpoint-model-select');
+        const fetchBtn = row.querySelector('.fetch-models');
+
+        if (!url || !key) {
+            setEndpointStatus(row, '请先填写接口地址和 API Key', 'error');
+            return;
+        }
+
+        setEndpointStatus(row, '正在获取模型列表...', 'pending');
+        fetchBtn.disabled = true;
+        modelField.hidden = true;
+        modelSelect.innerHTML = '<option value="">-- 选择模型 --</option>';
+
+        try {
+            const payload = await apiRequest('/api/ai/models', {
+                method: 'POST',
+                body: JSON.stringify({ url, key, provider }),
+            });
+
+            if (payload.unsupported) {
+                setEndpointStatus(row, payload.message || '该服务商不支持自动获取模型', 'warning');
+                return;
+            }
+
+            const models = Array.isArray(payload.models) ? payload.models : [];
+            if (models.length === 0) {
+                setEndpointStatus(row, '未获取到模型列表', 'warning');
+                return;
+            }
+
+            models.forEach((m) => {
+                const option = document.createElement('option');
+                option.value = m;
+                option.textContent = m;
+                modelSelect.appendChild(option);
+            });
+            modelField.hidden = false;
+            setEndpointStatus(row, `获取到 ${models.length} 个模型`, 'ok');
+        } catch (error) {
+            setEndpointStatus(row, error.message || '获取模型失败', 'error');
+        } finally {
+            fetchBtn.disabled = false;
+        }
+    }
+
+    async function handleTestConnection(row) {
+        const url = normalizeEndpointUrlForRequest(row);
+        const key = row.querySelector('.endpoint-key').value.trim();
+        const provider = row.querySelector('.endpoint-provider').value;
+        const model = row.querySelector('.endpoint-model').value.trim();
+        const testBtn = row.querySelector('.test-connection');
+
+        if (!url || !key) {
+            setEndpointStatus(row, '请先填写接口地址和 API Key', 'error');
+            return;
+        }
+
+        if (provider === 'openai-compatible' && !model) {
+            setEndpointStatus(row, 'OpenAI 兼容接口需要填写模型名', 'error');
+            return;
+        }
+
+        setEndpointStatus(row, '正在测试连接...', 'pending');
+        testBtn.disabled = true;
+
+        try {
+            await apiRequest('/api/ai/test', {
+                method: 'POST',
+                body: JSON.stringify({ url, key, provider, model }),
+            });
+            setEndpointStatus(row, '连接成功', 'ok');
+        } catch (error) {
+            setEndpointStatus(row, error.message || '连接测试失败', 'error');
+        } finally {
+            testBtn.disabled = false;
+        }
+    }
+
+    function setEndpointStatus(row, message, type) {
+        const statusEl = row.querySelector('.endpoint-status');
+        statusEl.hidden = false;
+        statusEl.textContent = message;
+        statusEl.className = 'endpoint-status';
+        if (type) {
+            statusEl.classList.add(type);
+        }
     }
 
     function ensureEndpointRow() {
@@ -1090,6 +1214,39 @@
         }
     }
 
+    async function validateConfigOnline() {
+        try {
+            showServerStatus('正在验证配置...');
+            const { config } = buildConfig();
+            const payload = await apiRequest('/api/config/validate', {
+                method: 'POST',
+                body: JSON.stringify({ config }),
+            });
+            renderValidationResult(payload);
+            const allOk = payload.checks?.every((c) => c.ok);
+            showServerStatus(allOk ? '配置验证通过' : '配置验证发现问题', !allOk);
+        } catch (error) {
+            renderValidationResult({ checks: [{ name: '配置验证请求', ok: false, error: error.message }] });
+            showServerStatus(`验证失败：${error.message}`, true);
+        }
+    }
+
+    function renderValidationResult(payload) {
+        const box = $('validationPanel');
+        if (!box || !payload) {
+            return;
+        }
+        box.hidden = false;
+        const checks = Array.isArray(payload.checks) ? payload.checks : [];
+        const items = checks.map((check) => {
+            const status = check.ok ? '通过' : '失败';
+            const cls = check.ok ? 'ok' : 'error';
+            return `<div class="validation-item ${cls}"><strong>${escapeHtml(check.name)}</strong><span>${escapeHtml(status)}</span>${check.error ? `<small>${escapeHtml(check.error)}</small>` : ''}</div>`;
+        }).join('');
+        const summary = checks.filter((c) => c.ok).length;
+        box.innerHTML = `<strong>配置验证结果</strong><div class="validation-summary">${summary} / ${checks.length} 项通过</div><div class="validation-list">${items}</div>`;
+    }
+
     function downloadConfig() {
         const blob = new Blob([$('configOutput').value], { type: 'application/json;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -1353,6 +1510,7 @@
             $('saveServerConfig').addEventListener('click', saveServerConfig);
             $('loadServerConfig').addEventListener('click', loadServerConfig);
             $('restartBot').addEventListener('click', restartBot);
+            $('validateConfig').addEventListener('click', validateConfigOnline);
         }
     }
 
