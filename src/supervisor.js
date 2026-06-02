@@ -2,10 +2,12 @@ import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { createServer } from 'http';
 import { spawn } from 'child_process';
 import { REST, Routes } from 'discord.js';
+import { QueryTypes } from 'sequelize';
 import { existsSync } from 'fs';
 import { mkdir, readFile, rename, stat, writeFile } from 'fs/promises';
 import { dirname, extname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { pgManager } from './pg/pgManager.js';
 import { getConfigPath } from './utils/configPaths.js';
 import { loadCommandFiles } from './utils/helper.js';
 
@@ -21,6 +23,8 @@ const adminPassword = process.env.JSBOT_WEB_PASSWORD || process.env.PASSWORD || 
 const maxBodyBytes = 1024 * 1024;
 const sessionCookieName = 'jsbot_web_session';
 const sessionTtlMs = 24 * 60 * 60 * 1000;
+const botConfigStateKey = 'botConfig';
+const configStoreRetryMs = 10 * 1000;
 
 let botProcess = null;
 let botStarting = false;
@@ -28,6 +32,9 @@ let botStopping = false;
 let restartTimer = null;
 let lastBotStartAt = null;
 let lastBotExit = null;
+let configStoreReady = false;
+let configStoreError = null;
+let lastConfigStoreAttemptAt = 0;
 const sessions = new Map();
 
 const mimeTypes = {
@@ -600,7 +607,82 @@ async function runConfigValidation(config) {
     return { checks };
 }
 
-async function readConfigIfExists() {
+async function ensureConfigStore() {
+    if (configStoreReady) {
+        return true;
+    }
+
+    const now = Date.now();
+    if (configStoreError && now - lastConfigStoreAttemptAt < configStoreRetryMs) {
+        return false;
+    }
+
+    lastConfigStoreAttemptAt = now;
+
+    try {
+        await pgManager.connect();
+        const sequelize = pgManager.getSequelize();
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS runtime_state (
+                key TEXT PRIMARY KEY,
+                value JSONB NOT NULL,
+                updated_at BIGINT NOT NULL
+            )
+        `);
+        configStoreReady = true;
+        configStoreError = null;
+        return true;
+    } catch (error) {
+        configStoreReady = false;
+        configStoreError = error;
+        log(`PostgreSQL config store unavailable: ${error.message}`);
+        return false;
+    }
+}
+
+async function readConfigRow() {
+    if (!(await ensureConfigStore())) {
+        return null;
+    }
+
+    const sequelize = pgManager.getSequelize();
+    const rows = await sequelize.query(
+        'SELECT value, updated_at FROM runtime_state WHERE key = $1',
+        { bind: [botConfigStateKey], type: QueryTypes.SELECT },
+    );
+    const row = rows[0];
+    if (!row) {
+        return null;
+    }
+
+    return {
+        config: typeof row.value === 'string' ? JSON.parse(row.value) : row.value,
+        updatedAt: Number(row.updated_at) || null,
+    };
+}
+
+async function writeConfigToStore(config) {
+    if (!(await ensureConfigStore())) {
+        throw new Error(`PostgreSQL 配置存储不可用: ${configStoreError?.message || 'unknown error'}`);
+    }
+
+    const sequelize = pgManager.getSequelize();
+    await sequelize.query(
+        `INSERT INTO runtime_state (key, value, updated_at)
+         VALUES ($1, $2::jsonb, $3)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at`,
+        { bind: [botConfigStateKey, JSON.stringify(config), Date.now()] },
+    );
+}
+
+async function materializeConfigFile(config) {
+    await mkdir(dirname(configPath), { recursive: true });
+    const tempPath = `${configPath}.${process.pid}.tmp`;
+    await writeFile(tempPath, `${JSON.stringify(config, null, 4)}\n`, { mode: 0o600 });
+    await rename(tempPath, configPath);
+}
+
+async function readConfigFileIfExists() {
     if (!existsSync(configPath)) {
         return null;
     }
@@ -608,16 +690,63 @@ async function readConfigIfExists() {
     return JSON.parse(await readFile(configPath, 'utf8'));
 }
 
-async function writeConfig(config) {
-    validateConfig(config);
-    await mkdir(dirname(configPath), { recursive: true });
-    const tempPath = `${configPath}.${process.pid}.tmp`;
-    await writeFile(tempPath, `${JSON.stringify(config, null, 4)}\n`, { mode: 0o600 });
-    await rename(tempPath, configPath);
+async function migrateConfigFileToStoreIfNeeded() {
+    const stored = await readConfigRow();
+    if (stored?.config) {
+        return stored.config;
+    }
+
+    const fileConfig = await readConfigFileIfExists();
+    if (!fileConfig) {
+        return null;
+    }
+
+    validateConfig(fileConfig);
+    await writeConfigToStore(fileConfig);
+    log(`migrated ${configPath} into PostgreSQL runtime_state.${botConfigStateKey}`);
+    return fileConfig;
 }
 
-function shouldStartBot() {
-    return existsSync(configPath);
+async function readConfigIfExists() {
+    const stored = await readConfigRow();
+    return stored?.config || null;
+}
+
+async function writeConfig(config) {
+    validateConfig(config);
+    await writeConfigToStore(config);
+    await materializeConfigFile(config);
+}
+
+async function hasStoredConfig() {
+    const stored = await readConfigRow();
+    return Boolean(stored?.config);
+}
+
+async function prepareConfigForBot() {
+    const config = await migrateConfigFileToStoreIfNeeded();
+    if (!config) {
+        return false;
+    }
+
+    await materializeConfigFile(config);
+    return true;
+}
+
+async function importMaterializedConfigIfChanged() {
+    const fileConfig = await readConfigFileIfExists();
+    if (!fileConfig) {
+        return;
+    }
+
+    validateConfig(fileConfig);
+    const stored = await readConfigRow();
+    if (JSON.stringify(stored?.config || null) === JSON.stringify(fileConfig)) {
+        return;
+    }
+
+    await writeConfigToStore(fileConfig);
+    log(`imported updated ${configPath} into PostgreSQL runtime_state.${botConfigStateKey}`);
 }
 
 function clearRestartTimer() {
@@ -627,13 +756,13 @@ function clearRestartTimer() {
     }
 }
 
-function startBot(reason = 'startup') {
+async function startBot(reason = 'startup') {
     if (botProcess || botStarting || botStopping) {
         return;
     }
 
-    if (!shouldStartBot()) {
-        log(`config not found at ${configPath}; bot is waiting for web configuration`);
+    if (!(await prepareConfigForBot())) {
+        log(`PostgreSQL botConfig not found; bot is waiting for web configuration`);
         return;
     }
 
@@ -660,14 +789,20 @@ function startBot(reason = 'startup') {
         };
         botProcess = null;
 
-        if (botStopping) {
-            botStopping = false;
-            return;
-        }
+        importMaterializedConfigIfChanged()
+            .catch((error) => log(`failed to import materialized config after bot exit: ${error.message}`))
+            .finally(() => {
+                if (botStopping) {
+                    botStopping = false;
+                    return;
+                }
 
-        log(`bot exited with code=${code ?? 'null'} signal=${signal ?? 'null'}; scheduling restart`);
-        clearRestartTimer();
-        restartTimer = setTimeout(() => startBot('auto-restart'), 5000);
+                log(`bot exited with code=${code ?? 'null'} signal=${signal ?? 'null'}; scheduling restart`);
+                clearRestartTimer();
+                restartTimer = setTimeout(() => {
+                    startBot('auto-restart').catch((error) => log(`auto-restart failed: ${error.message}`));
+                }, 5000);
+            });
     });
 }
 
@@ -702,7 +837,7 @@ function stopBot() {
 
 async function restartBot(reason = 'manual') {
     await stopBot();
-    startBot(reason);
+    await startBot(reason);
 }
 
 async function getStatus() {
@@ -711,13 +846,20 @@ async function getStatus() {
     let guildCount = 0;
 
     try {
-        const configStats = await stat(configPath);
-        configExists = true;
-        configUpdatedAt = configStats.mtime.toISOString();
-        const config = await readConfigIfExists();
+        const stored = await readConfigRow();
+        const config = stored?.config || null;
+        configExists = Boolean(config);
+        configUpdatedAt = stored?.updatedAt ? new Date(stored.updatedAt).toISOString() : null;
         guildCount = Object.keys(config?.guilds || {}).length;
     } catch (_error) {
         configExists = false;
+    }
+
+    let configFileUpdatedAt = null;
+    try {
+        configFileUpdatedAt = (await stat(configPath)).mtime.toISOString();
+    } catch (_error) {
+        configFileUpdatedAt = null;
     }
 
     return {
@@ -726,10 +868,16 @@ async function getStatus() {
             authConfigured: Boolean(adminPassword),
             port,
         },
+        database: {
+            connected: configStoreReady,
+            error: configStoreError?.message || null,
+        },
         config: {
+            source: 'postgres',
             path: configPath,
             exists: configExists,
             updatedAt: configUpdatedAt,
+            materializedAt: configFileUpdatedAt,
             guildCount,
         },
         bot: {
@@ -922,7 +1070,7 @@ const server = createServer(async (req, res) => {
         const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
         if (url.pathname === '/healthz') {
-            sendJson(res, 200, { ok: true, botRunning: Boolean(botProcess), configExists: existsSync(configPath) });
+            sendJson(res, 200, { ok: true, botRunning: Boolean(botProcess), configExists: await hasStoredConfig(), databaseConnected: configStoreReady });
             return;
         }
 
@@ -958,5 +1106,7 @@ server.listen(port, host, () => {
     if (!adminPassword) {
         log('WARNING: JSBOT_WEB_PASSWORD is not set; configuration page is locked until a password is configured');
     }
-    startBot('supervisor-startup');
+    ensureConfigStore()
+        .then(() => startBot('supervisor-startup'))
+        .catch((error) => log(`startup failed: ${error.message}`));
 });

@@ -64,6 +64,14 @@ class RuntimeStateService {
         await this.setState('carouselConfig', config);
     }
 
+    async getBotConfig() {
+        return this.getState('botConfig', null);
+    }
+
+    async setBotConfig(config) {
+        await this.setState('botConfig', config);
+    }
+
     async getOpinionRecords() {
         return this.getState('opinionRecords', DEFAULTS.opinionRecords);
     }
