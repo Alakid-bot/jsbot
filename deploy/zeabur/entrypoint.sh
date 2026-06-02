@@ -88,10 +88,72 @@ fs.writeFileSync('pg.config.json', `${JSON.stringify(config, null, 4)}\n`);
 NODE
 }
 
+setup_web_password() {
+    : "${JSBOT_WEB_USERNAME:=admin}"
+    : "${JSBOT_WEB_PASSWORD_FILE:=data/web-password.txt}"
+    export JSBOT_WEB_USERNAME
+    export JSBOT_WEB_PASSWORD_FILE
+
+    if [ -n "$(printenv JSBOT_WEB_PASSWORD || true)" ]; then
+        export JSBOT_WEB_PASSWORD
+        echo "[entrypoint] JSBot web configuration username: ${JSBOT_WEB_USERNAME}"
+        echo "[entrypoint] JSBOT_WEB_PASSWORD is set from environment. The password will not be printed."
+        return 0
+    fi
+
+    JSBOT_WEB_PASSWORD="$(node <<'NODE'
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+const passwordFile = process.env.JSBOT_WEB_PASSWORD_FILE || 'data/web-password.txt';
+fs.mkdirSync(path.dirname(passwordFile), { recursive: true });
+
+let password = '';
+let created = false;
+
+if (fs.existsSync(passwordFile)) {
+    password = fs.readFileSync(passwordFile, 'utf8').trim();
+}
+
+if (!password) {
+    password = crypto.randomBytes(24).toString('base64url');
+    fs.writeFileSync(passwordFile, `${password}\n`, { mode: 0o600 });
+    created = true;
+}
+
+try {
+    fs.chmodSync(passwordFile, 0o600);
+} catch (_error) {
+    // Some mounted volumes may not support chmod; the file still remains inside the app volume.
+}
+
+console.error(
+    created
+        ? `[entrypoint] Generated JSBot web configuration password at ${passwordFile}`
+        : `[entrypoint] Reusing JSBot web configuration password from ${passwordFile}`
+);
+
+process.stdout.write(password);
+NODE
+)"
+    export JSBOT_WEB_PASSWORD
+
+    echo "============================================================"
+    echo "JSBot web configuration login"
+    echo "Username: ${JSBOT_WEB_USERNAME}"
+    echo "Password: ${JSBOT_WEB_PASSWORD}"
+    echo "Password file: ${JSBOT_WEB_PASSWORD_FILE}"
+    echo "Set JSBOT_WEB_PASSWORD in Zeabur if you want to override it."
+    echo "============================================================"
+}
+
 mkdir -p data logs data/backups data/qalog
 
 : "${JSBOT_CONFIG_PATH:=data/config.json}"
 export JSBOT_CONFIG_PATH
+
+setup_web_password
 
 # Optional application configuration. Prefer JSBOT_CONFIG_JSON_BASE64 when the
 # Zeabur dashboard has trouble preserving quotes/newlines in large JSON values.

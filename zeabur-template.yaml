@@ -9,10 +9,6 @@ spec:
     - Tool
     - Database
   variables:
-    - key: JSBOT_WEB_PASSWORD
-      type: PASSWORD
-      name: Web configuration password
-      description: Password for the public Zeabur configuration page. Username is admin by default.
     - key: TZ
       type: STRING
       name: Time zone
@@ -25,7 +21,7 @@ spec:
     - `jsbot`: the Discord bot service built from `Alakid-bot/jsbot:main`.
     - `postgresql`: a PostgreSQL 16 database with persistent storage.
 
-    After deployment, open the Zeabur domain for the `jsbot` service. Log in with username `admin` and the `JSBOT_WEB_PASSWORD` you set, then fill and save the bot configuration.
+    After deployment, open the Zeabur domain for the `jsbot` service. If no `JSBOT_WEB_PASSWORD` is set, the container generates one and prints it in the `jsbot` service logs. Log in with username `admin`, then fill and save the bot configuration.
 
     PostgreSQL is created automatically. The bot service receives the database connection through Zeabur variables and generates `/app/pg.config.json` at startup.
   services:
@@ -113,8 +109,8 @@ spec:
             default: "8080"
           JSBOT_WEB_USERNAME:
             default: admin
-          JSBOT_WEB_PASSWORD:
-            default: ${JSBOT_WEB_PASSWORD}
+          JSBOT_WEB_PASSWORD_FILE:
+            default: /app/data/web-password.txt
           JSBOT_CONFIG_PATH:
             default: /app/data/config.json
           JSBOT_PG_POOL_MAX:

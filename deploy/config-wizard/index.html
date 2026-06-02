@@ -312,7 +312,7 @@
         <footer class="footer">
             <p>
                 本地模式可复制 <code>JSBOT_CONFIG_JSON_BASE64</code> 到 Zeabur；在线模式可直接保存到服务器。不要把真实
-                <code>config.json</code>、Token 或 Key 提交到 GitHub。在线页面必须配置 <code>JSBOT_WEB_PASSWORD</code> 保护。
+                <code>config.json</code>、Token 或 Key 提交到 GitHub。在线页面会使用 <code>JSBOT_WEB_PASSWORD</code>，未设置时容器会自动生成并写入日志。
             </p>
         </footer>
 

@@ -46,18 +46,25 @@ zeabur-template.yaml
 npx zeabur@latest template deploy -f zeabur-template.yaml
 ```
 
-部署时需要填写：
+部署时通常只需要填写时区：
+
+```env
+TZ=Asia/Shanghai
+```
+
+如果你不填写 `JSBOT_WEB_PASSWORD`，容器会在首次启动时自动生成一个随机密码，保存到 `/app/data/web-password.txt`，并打印在 Zeabur 的 `jsbot` 服务日志里。之后只要 `/app/data` 持久化卷还在，重启会复用同一个密码。
+
+如果你想使用固定密码，也可以额外设置：
 
 ```env
 JSBOT_WEB_PASSWORD=CHANGE_ME_TO_A_LONG_RANDOM_PASSWORD
-TZ=Asia/Shanghai
 ```
 
 部署完成后：
 
 1. 打开 Zeabur 给 `jsbot` 服务分配的域名。
 2. 浏览器会弹出 Basic Auth 登录框。
-3. 用户名默认是 `admin`，密码是 `JSBOT_WEB_PASSWORD`。
+3. 用户名默认是 `admin`，密码查看 Zeabur 日志中的自动生成密码；如果你手动设置了 `JSBOT_WEB_PASSWORD`，则使用你设置的密码。
 4. 填写 Discord Token、Guild ID、频道/角色 ID、FastGPT Endpoint/Key 等配置。
 5. 点击“保存配置并重启 Bot”。配置会写入持久化的 `/app/data/config.json`。
 
@@ -73,16 +80,22 @@ base64 -w 0 config.json
 JSBOT_CONFIG_JSON_BASE64=BASE64_ENCODED_CONFIG_JSON
 ```
 
-## 必填环境变量
+## 推荐环境变量
 
-在线配置页必须设置访问密码。不要留空，否则配置页会锁定并返回 503，避免公开域名无保护暴露。
+在线配置页必须有访问密码。容器会在 `JSBOT_WEB_PASSWORD` 未设置时自动生成密码并注入给配置页，因此通常不需要手动填写密码。生成的密码会保存到 `JSBOT_WEB_PASSWORD_FILE` 并打印到启动日志。
 
 ```env
 JSBOT_WEB_USERNAME=admin
-JSBOT_WEB_PASSWORD=CHANGE_ME_TO_A_LONG_RANDOM_PASSWORD
+JSBOT_WEB_PASSWORD_FILE=/app/data/web-password.txt
 PORT=8080
 JSBOT_CONFIG_PATH=/app/data/config.json
 NODE_ENV=production
+```
+
+可选固定密码：
+
+```env
+JSBOT_WEB_PASSWORD=CHANGE_ME_TO_A_LONG_RANDOM_PASSWORD
 ```
 
 ## 在线配置页
@@ -99,7 +112,8 @@ Zeabur 部署后访问 Bot 服务域名，即可看到配置页。页面支持�
 
 安全注意：
 
-- 配置页是公开域名可访问的，必须设置强密码 `JSBOT_WEB_PASSWORD`。
+- 配置页是公开域名可访问的，必须使用强密码。未设置 `JSBOT_WEB_PASSWORD` 时，启动脚本会自动生成强随机密码。
+- 自动生成密码会打印在 Zeabur 日志里；保存好后不要公开分享日志。
 - 推荐使用 Zeabur 的 HTTPS 域名访问。
 - 不要把真实 `config.json`、Token、Key 提交到 GitHub。
 

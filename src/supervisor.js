@@ -94,7 +94,7 @@ function requireAuth(req, res) {
         sendText(
             res,
             503,
-            'JSBOT_WEB_PASSWORD is not set. Set this environment variable before exposing the web configuration page.\n',
+            'JSBOT_WEB_PASSWORD is not set. In Docker/Zeabur, deploy/zeabur/entrypoint.sh normally generates it automatically. If you start this file directly, set JSBOT_WEB_PASSWORD first.\n',
         );
         return false;
     }

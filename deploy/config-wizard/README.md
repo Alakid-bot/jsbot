@@ -37,14 +37,14 @@ deploy/config-wizard/index.html
 
 ```env
 JSBOT_WEB_USERNAME=admin
-JSBOT_WEB_PASSWORD=CHANGE_ME_TO_A_LONG_RANDOM_PASSWORD
+JSBOT_WEB_PASSWORD_FILE=/app/data/web-password.txt
 PORT=8080
 JSBOT_CONFIG_PATH=/app/data/config.json
 NODE_ENV=production
 ```
 
-部署后打开 Zeabur 域名，登录后填写并保存配置即可。如果使用仓库根目录的 `zeabur-template.yaml`，PostgreSQL 会自动创建，通常不需要额外填写 `JSBOT_PG_CONFIG_JSON_BASE64`。
+如果不设置 `JSBOT_WEB_PASSWORD`，容器会自动生成密码，保存到 `JSBOT_WEB_PASSWORD_FILE`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后打开 Zeabur 域名，登录后填写并保存配置即可。如果使用仓库根目录的 `zeabur-template.yaml`，PostgreSQL 会自动创建，通常不需要额外填写 `JSBOT_PG_CONFIG_JSON_BASE64`。
 
 ## 安全说明
 
-本地模式不需要服务器，不依赖外部 CDN，所有数据都只在浏览器本地处理。Zeabur 在线模式会把配置保存到服务器持久化目录，因此必须设置强密码 `JSBOT_WEB_PASSWORD`。不要把真实 Token、Key、`config.json` 或 `.env` 文件提交到 GitHub。
+本地模式不需要服务器，不依赖外部 CDN，所有数据都只在浏览器本地处理。Zeabur 在线模式会把配置保存到服务器持久化目录，因此必须使用强密码保护；未设置 `JSBOT_WEB_PASSWORD` 时容器会自动生成。不要把真实 Token、Key、`config.json` 或 `.env` 文件提交到 GitHub。
