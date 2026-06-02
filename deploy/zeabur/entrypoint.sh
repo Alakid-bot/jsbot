@@ -98,6 +98,13 @@ setup_web_password() {
         return 0
     fi
 
+    if [ -n "$(printenv PASSWORD || true)" ]; then
+        JSBOT_WEB_PASSWORD="$(printenv PASSWORD)"
+        export JSBOT_WEB_PASSWORD
+        echo "[entrypoint] JSBot web configuration password is synchronized from PASSWORD. The password will not be printed."
+        return 0
+    fi
+
     JSBOT_WEB_PASSWORD="$(node <<'NODE'
 const crypto = require('crypto');
 const fs = require('fs');

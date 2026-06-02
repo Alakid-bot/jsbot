@@ -15,7 +15,7 @@ const configPath = process.env.JSBOT_CONFIG_PATH
     : join(rootDir, 'data', 'config.json');
 const port = Number(process.env.PORT || process.env.JSBOT_WEB_PORT || 8080);
 const host = process.env.JSBOT_WEB_HOST || '0.0.0.0';
-const adminPassword = process.env.JSBOT_WEB_PASSWORD || process.env.JSBOT_WEB_TOKEN || '';
+const adminPassword = process.env.JSBOT_WEB_PASSWORD || process.env.PASSWORD || process.env.JSBOT_WEB_TOKEN || '';
 const maxBodyBytes = 1024 * 1024;
 const sessionCookieName = 'jsbot_web_session';
 const sessionTtlMs = 24 * 60 * 60 * 1000;

@@ -52,21 +52,22 @@ npx zeabur@latest template deploy -f zeabur-template.yaml
 TZ=Asia/Shanghai
 ```
 
-一键部署模板会把 Zeabur 生成的随机密码写入固定的 `JSBOT_WEB_PASSWORD` 环境变量，并在 Zeabur 的 `Web configuration password` 部署说明中以密码类型显示，方便 user 复制。配置页打开后先显示独立登录页，只有一个密码输入框；输入正确密码后进入配置控制台。
+一键部署模板会把 Zeabur 生成的同一个随机密码写入 `PASSWORD` 和 `JSBOT_WEB_PASSWORD`，并在 Zeabur 的 `Web configuration password` 部署说明中以密码类型显示，方便 user 复制。配置页打开后先显示独立登录页，只有一个密码输入框；输入 Zeabur 显示的密码后进入配置控制台。
 
-如果你想手动覆盖固定密码，可以在 Zeabur 环境变量里设置：
+如果你想手动覆盖固定密码，可以在 Zeabur 环境变量里设置 `PASSWORD` 或 `JSBOT_WEB_PASSWORD`。推荐两个变量保持一致：
 
 ```env
+PASSWORD=CHANGE_ME_16_CHARS
 JSBOT_WEB_PASSWORD=CHANGE_ME_16_CHARS
 ```
 
-如果你不填写 `JSBOT_WEB_PASSWORD`，容器会在首次启动时自动生成一个 16 位随机密码，保存到 `/app/data/web-password.txt`，并打印在 Zeabur 的 `jsbot` 服务日志里。之后只要 `/app/data` 持久化卷还在，重启会复用同一个密码。
+如果你不填写 `PASSWORD` 或 `JSBOT_WEB_PASSWORD`，容器会在首次启动时自动生成一个 16 位随机密码，保存到 `/app/data/web-password.txt`，并打印在 Zeabur 的 `jsbot` 服务日志里。之后只要 `/app/data` 持久化卷还在，重启会复用同一个密码。
 
 部署完成后：
 
 1. 打开 Zeabur 给 `jsbot` 服务分配的域名。
 2. 页面会先显示一个只有密码输入框的登录界面。
-3. 密码使用 Zeabur 部署说明中的 `Web configuration password`，也就是环境变量 `JSBOT_WEB_PASSWORD`；如果没有设置该变量，则查看 Zeabur 日志里的自动生成密码。
+3. 密码使用 Zeabur 部署说明中的 `Web configuration password`，也就是环境变量 `PASSWORD` / `JSBOT_WEB_PASSWORD` 的同一个值；如果没有设置这些变量，则查看 Zeabur 日志里的自动生成密码。
 4. 输入正确密码并点击“进入控制台”。
 5. 填写 Discord Token、Guild ID、频道/角色 ID、AI 答疑接口/SK/模型、投票系统、运行监控等配置。
 6. 点击“保存配置并重启 Bot”。配置会写入持久化的 `/app/data/config.json`。
@@ -85,9 +86,10 @@ JSBOT_CONFIG_JSON_BASE64=BASE64_ENCODED_CONFIG_JSON
 
 ## 推荐环境变量
 
-在线配置页必须有访问密码。一键部署模板会生成随机密码并写入固定的 `JSBOT_WEB_PASSWORD`，同时在 Zeabur 部署说明中显示为 `Web configuration password` 供复制。如果该变量未设置，容器会自动生成 16 位 fallback 密码，保存到 `JSBOT_WEB_PASSWORD_FILE` 并打印到启动日志。
+在线配置页必须有访问密码。一键部署模板会生成随机密码并写入固定的 `PASSWORD` 和 `JSBOT_WEB_PASSWORD`，同时在 Zeabur 部署说明中显示为 `Web configuration password` 供复制。如果这些变量未设置，容器会自动生成 16 位 fallback 密码，保存到 `JSBOT_WEB_PASSWORD_FILE` 并打印到启动日志。
 
 ```env
+PASSWORD=ZEABUR_GENERATED_PASSWORD
 JSBOT_WEB_PASSWORD=ZEABUR_GENERATED_PASSWORD
 JSBOT_WEB_PASSWORD_FILE=/app/data/web-password.txt
 PORT=8080
@@ -110,8 +112,8 @@ Zeabur 部署后访问 Bot 服务域名，即可看到配置页。页面支持�
 
 安全注意：
 
-- 配置页是公开域名可访问的，必须使用强密码。模板会把 Zeabur 生成的随机密码写入 `JSBOT_WEB_PASSWORD`。
-- 如果没有设置 `JSBOT_WEB_PASSWORD`，启动脚本会自动生成 fallback 密码并打印在 Zeabur 日志里；保存好后不要公开分享日志。
+- 配置页是公开域名可访问的，必须使用强密码。模板会把 Zeabur 生成的同一个随机密码写入 `PASSWORD` 和 `JSBOT_WEB_PASSWORD`。
+- 如果没有设置 `PASSWORD` 或 `JSBOT_WEB_PASSWORD`，启动脚本会自动生成 fallback 密码并打印在 Zeabur 日志里；保存好后不要公开分享日志。
 - 推荐使用 Zeabur 的 HTTPS 域名访问。
 - 不要把真实 `config.json`、Token、Key 提交到 GitHub。
 
