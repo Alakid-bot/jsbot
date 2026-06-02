@@ -74,8 +74,8 @@
                         <label class="switch-field">
                             <input id="commandsDeployed" type="checkbox" />
                             <span>
-                                <strong>commandsDeployed</strong>
-                                <small>首次部署建议关闭，Bot 会尝试部署命令。</small>
+                                <strong>Slash 指令已同步</strong>
+                                <small>首次部署或换服务器时建议关闭；保存重启或点击下方按钮后会重新部署。</small>
                             </span>
                         </label>
                     </div>
@@ -354,7 +354,9 @@
                         <button id="loadServerConfig" class="secondary" type="button">读取服务器配置</button>
                         <button id="restartBot" class="secondary" type="button">仅重启 Bot</button>
                         <button id="validateConfig" class="secondary" type="button">验证配置</button>
+                        <button id="syncDiscordCommands" class="secondary" type="button">同步 Discord 指令</button>
                     </div>
+                    <p class="helper-text">如果 Discord 聊天中看不到 <code>/同步指令</code>，可点击上方按钮手动触发重新部署。</p>
                     <p id="serverStatus" class="copy-status" aria-live="polite"></p>
                 </section>
             </form>

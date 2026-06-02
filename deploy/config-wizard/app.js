@@ -1231,6 +1231,50 @@
         }
     }
 
+    async function syncDiscordCommands() {
+        const button = $('syncDiscordCommands');
+        try {
+            const errors = validateForSave();
+            if (errors.length) {
+                renderWarnings(errors, '以下问题阻止同步：');
+                showServerStatus('请修正以下错误后再同步：' + errors[0], true);
+                return;
+            }
+
+            button.disabled = true;
+            showServerStatus('正在同步 Discord 指令...');
+
+            const { config } = buildConfig();
+            const guildId = Object.keys(config.guilds || {})[0] || '';
+            if (!guildId || guildId === 'YOUR_GUILD_ID') {
+                showServerStatus('服务器 ID 未填写，无法同步指令。', true);
+                return;
+            }
+
+            const payload = await apiRequest('/api/commands/sync', {
+                method: 'POST',
+                body: JSON.stringify({ config, guildId }),
+            });
+
+            if (payload && payload.ok === false) {
+                throw new Error(payload.status || '同步返回失败状态');
+            }
+
+            if (payload.commandsDeployed) {
+                $('commandsDeployed').checked = true;
+            }
+
+            renderOutput();
+            renderRuntimeStatus(payload.status);
+            const count = payload.commandCount ?? 0;
+            showServerStatus(`Discord 指令同步成功：已部署 ${count} 条指令。`);
+        } catch (error) {
+            showServerStatus(`同步 Discord 指令失败：${error.message}`, true);
+        } finally {
+            button.disabled = false;
+        }
+    }
+
     function renderValidationResult(payload) {
         const box = $('validationPanel');
         if (!box || !payload) {
@@ -1511,6 +1555,7 @@
             $('loadServerConfig').addEventListener('click', loadServerConfig);
             $('restartBot').addEventListener('click', restartBot);
             $('validateConfig').addEventListener('click', validateConfigOnline);
+            $('syncDiscordCommands').addEventListener('click', syncDiscordCommands);
         }
     }
 
