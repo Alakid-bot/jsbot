@@ -52,19 +52,21 @@ npx zeabur@latest template deploy -f zeabur-template.yaml
 TZ=Asia/Shanghai
 ```
 
-如果你不填写 `JSBOT_WEB_PASSWORD`，容器会在首次启动时自动生成一个随机密码，保存到 `/app/data/web-password.txt`，并打印在 Zeabur 的 `jsbot` 服务日志里。之后只要 `/app/data` 持久化卷还在，重启会复用同一个密码。
+一键部署模板会把 16 位随机密码写入 `JSBOT_WEB_PASSWORD` 环境变量，配置页只校验这个密码，不校验用户名。浏览器 Basic Auth 登录框可能仍然显示用户名输入框，这是浏览器机制限制；用户名留空或填写任意内容都可以。
 
-如果你想使用固定密码，也可以额外设置：
+如果你想手动覆盖固定密码，可以在 Zeabur 环境变量里设置：
 
 ```env
-JSBOT_WEB_PASSWORD=CHANGE_ME_TO_A_LONG_RANDOM_PASSWORD
+JSBOT_WEB_PASSWORD=CHANGE_ME_16_CHARS
 ```
+
+如果你不填写 `JSBOT_WEB_PASSWORD`，容器会在首次启动时自动生成一个 16 位随机密码，保存到 `/app/data/web-password.txt`，并打印在 Zeabur 的 `jsbot` 服务日志里。之后只要 `/app/data` 持久化卷还在，重启会复用同一个密码。
 
 部署完成后：
 
 1. 打开 Zeabur 给 `jsbot` 服务分配的域名。
 2. 浏览器会弹出 Basic Auth 登录框。
-3. 用户名默认是 `admin`，密码查看 Zeabur 日志中的自动生成密码；如果你手动设置了 `JSBOT_WEB_PASSWORD`，则使用你设置的密码。
+3. 用户名留空或填写任意内容，密码使用 Zeabur 环境变量 `JSBOT_WEB_PASSWORD`；如果没有设置该变量，则查看 Zeabur 日志里的自动生成密码。
 4. 填写 Discord Token、Guild ID、频道/角色 ID、AI 答疑接口/SK/模型、投票系统、运行监控等配置。
 5. 点击“保存配置并重启 Bot”。配置会写入持久化的 `/app/data/config.json`。
 
@@ -82,20 +84,14 @@ JSBOT_CONFIG_JSON_BASE64=BASE64_ENCODED_CONFIG_JSON
 
 ## 推荐环境变量
 
-在线配置页必须有访问密码。容器会在 `JSBOT_WEB_PASSWORD` 未设置时自动生成密码并注入给配置页，因此通常不需要手动填写密码。生成的密码会保存到 `JSBOT_WEB_PASSWORD_FILE` 并打印到启动日志。
+在线配置页必须有访问密码。一键部署模板会生成 16 位随机密码并写入 `JSBOT_WEB_PASSWORD`。如果该变量未设置，容器会自动生成 fallback 密码，保存到 `JSBOT_WEB_PASSWORD_FILE` 并打印到启动日志。
 
 ```env
-JSBOT_WEB_USERNAME=admin
+JSBOT_WEB_PASSWORD=ZEABUR_GENERATED_16_CHAR_PASSWORD
 JSBOT_WEB_PASSWORD_FILE=/app/data/web-password.txt
 PORT=8080
 JSBOT_CONFIG_PATH=/app/data/config.json
 NODE_ENV=production
-```
-
-可选固定密码：
-
-```env
-JSBOT_WEB_PASSWORD=CHANGE_ME_TO_A_LONG_RANDOM_PASSWORD
 ```
 
 ## 在线配置页
@@ -113,8 +109,8 @@ Zeabur 部署后访问 Bot 服务域名，即可看到配置页。页面支持�
 
 安全注意：
 
-- 配置页是公开域名可访问的，必须使用强密码。未设置 `JSBOT_WEB_PASSWORD` 时，启动脚本会自动生成强随机密码。
-- 自动生成密码会打印在 Zeabur 日志里；保存好后不要公开分享日志。
+- 配置页是公开域名可访问的，必须使用强密码。模板会把 16 位随机密码写入 `JSBOT_WEB_PASSWORD`。
+- 如果没有设置 `JSBOT_WEB_PASSWORD`，启动脚本会自动生成 fallback 密码并打印在 Zeabur 日志里；保存好后不要公开分享日志。
 - 推荐使用 Zeabur 的 HTTPS 域名访问。
 - 不要把真实 `config.json`、Token、Key 提交到 GitHub。
 

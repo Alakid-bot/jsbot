@@ -16,7 +16,6 @@ const configPath = process.env.JSBOT_CONFIG_PATH
 const port = Number(process.env.PORT || process.env.JSBOT_WEB_PORT || 8080);
 const host = process.env.JSBOT_WEB_HOST || '0.0.0.0';
 const adminPassword = process.env.JSBOT_WEB_PASSWORD || process.env.JSBOT_WEB_TOKEN || '';
-const username = process.env.JSBOT_WEB_USERNAME || 'admin';
 const maxBodyBytes = 1024 * 1024;
 
 let botProcess = null;
@@ -83,10 +82,9 @@ function isAuthenticated(req) {
         return false;
     }
 
-    const providedUsername = decoded.slice(0, separatorIndex);
     const providedPassword = decoded.slice(separatorIndex + 1);
 
-    return safeEqual(providedUsername, username) && safeEqual(providedPassword, adminPassword);
+    return safeEqual(providedPassword, adminPassword);
 }
 
 function requireAuth(req, res) {

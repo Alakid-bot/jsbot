@@ -21,7 +21,7 @@ spec:
     - `jsbot`: the Discord bot service built from `Alakid-bot/jsbot:main`.
     - `postgresql`: a PostgreSQL 16 database with persistent storage.
 
-    After deployment, open the Zeabur domain for the `jsbot` service. If no `JSBOT_WEB_PASSWORD` is set, the container generates one and prints it in the `jsbot` service logs. Log in with username `admin`, then fill and save the bot configuration.
+    After deployment, open the Zeabur domain for the `jsbot` service. The template writes a generated password to the `JSBOT_WEB_PASSWORD` environment variable. The configuration page checks only the password; if your browser shows a username field, leave it blank or enter anything.
 
     PostgreSQL is created automatically. The bot service receives the database connection through Zeabur variables and generates `/app/pg.config.json` at startup.
   services:
@@ -100,6 +100,11 @@ spec:
           - id: web
             port: 8080
             type: HTTP
+        instructions:
+          - type: PASSWORD
+            title: Web configuration password
+            content: ${JSBOT_WEB_PASSWORD}
+            category: Credentials
         env:
           NODE_ENV:
             default: production
@@ -107,8 +112,9 @@ spec:
             default: ${TZ}
           PORT:
             default: "8080"
-          JSBOT_WEB_USERNAME:
-            default: admin
+          JSBOT_WEB_PASSWORD:
+            default: ${PASSWORD}
+            expose: true
           JSBOT_WEB_PASSWORD_FILE:
             default: /app/data/web-password.txt
           JSBOT_CONFIG_PATH:

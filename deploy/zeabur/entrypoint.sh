@@ -89,15 +89,12 @@ NODE
 }
 
 setup_web_password() {
-    : "${JSBOT_WEB_USERNAME:=admin}"
     : "${JSBOT_WEB_PASSWORD_FILE:=data/web-password.txt}"
-    export JSBOT_WEB_USERNAME
     export JSBOT_WEB_PASSWORD_FILE
 
     if [ -n "$(printenv JSBOT_WEB_PASSWORD || true)" ]; then
         export JSBOT_WEB_PASSWORD
-        echo "[entrypoint] JSBot web configuration username: ${JSBOT_WEB_USERNAME}"
-        echo "[entrypoint] JSBOT_WEB_PASSWORD is set from environment. The password will not be printed."
+        echo "[entrypoint] JSBot web configuration password is set from environment. The password will not be printed."
         return 0
     fi
 
@@ -117,7 +114,7 @@ if (fs.existsSync(passwordFile)) {
 }
 
 if (!password) {
-    password = crypto.randomBytes(24).toString('base64url');
+    password = crypto.randomBytes(12).toString('base64url');
     fs.writeFileSync(passwordFile, `${password}\n`, { mode: 0o600 });
     created = true;
 }
@@ -140,10 +137,10 @@ NODE
     export JSBOT_WEB_PASSWORD
 
     echo "============================================================"
-    echo "JSBot web configuration login"
-    echo "Username: ${JSBOT_WEB_USERNAME}"
+    echo "JSBot web configuration password"
     echo "Password: ${JSBOT_WEB_PASSWORD}"
     echo "Password file: ${JSBOT_WEB_PASSWORD_FILE}"
+    echo "Only the password is checked. If your browser shows a username field, leave it blank or enter anything."
     echo "Set JSBOT_WEB_PASSWORD in Zeabur if you want to override it."
     echo "============================================================"
 }
