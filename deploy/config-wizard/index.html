@@ -28,7 +28,7 @@
                         <span class="step">1</span>
                         <div>
                             <h2>基础信息</h2>
-                            <p>填写 Bot Token 和 Discord 服务器 ID。服务器 ID 需要在 Discord 开发者模式中复制。</p>
+                            <p class="section-tip">填写 Bot Token 和 Discord 服务器 ID。服务器 ID 需要在 Discord 开发者模式中复制。</p>
                         </div>
                     </div>
 
@@ -70,7 +70,7 @@
                         <span class="step">2</span>
                         <div>
                             <h2>角色与常用频道</h2>
-                            <p>每行一个 ID。暂时不用的频道可以留空，生成结果会写成 <code>null</code>。</p>
+                            <p class="section-tip">每行一个 ID。暂时不用的频道可以留空，生成结果会写成 <code>null</code>。</p>
                         </div>
                     </div>
 
@@ -115,7 +115,7 @@
                         <span class="step">3</span>
                         <div>
                             <h2>Forum / Thread 自动化</h2>
-                            <p>用于分析或清理不活跃帖子；不需要时保持 disabled。</p>
+                            <p class="section-tip">用于分析或清理不活跃帖子；不需要时保持 disabled。</p>
                         </div>
                     </div>
 
@@ -148,7 +148,7 @@
                         <span class="step">4</span>
                         <div>
                             <h2>身份组申请</h2>
-                            <p>如果暂时不用身份组申请功能，全部留空即可。</p>
+                            <p class="section-tip">如果暂时不用身份组申请功能，全部留空即可。</p>
                         </div>
                     </div>
 
@@ -169,7 +169,7 @@
                         <span class="step">5</span>
                         <div>
                             <h2>AI 答疑接口</h2>
-                            <p>可配置 FastGPT，也可以直接配置 OpenAI 兼容接口，例如 OpenAI、DeepSeek、硅基流动、OpenRouter 等。</p>
+                            <p class="section-tip">可配置 FastGPT，也可以直接配置 OpenAI 兼容接口，例如 OpenAI、DeepSeek、硅基流动、OpenRouter 等。</p>
                         </div>
                     </div>
 
@@ -205,7 +205,7 @@
                         <span class="step">6</span>
                         <div>
                             <h2>社区治理 / 投票系统</h2>
-                            <p>用于处罚上诉、议案提案、辩论 Forum 和投票截止时间。下面用“小时”填写，保存时会自动转成毫秒。</p>
+                            <p class="section-tip">用于处罚上诉、议案提案、辩论 Forum 和投票截止时间。下面用“小时”填写，保存时会自动转成毫秒。</p>
                         </div>
                     </div>
 
@@ -232,7 +232,7 @@
                         <span class="step">7</span>
                         <div>
                             <h2>运行监控</h2>
-                            <p>用于展示 Bot 在线状态、Ping、运行时间和被监控角色人数。监控频道可留空，Bot 命令也可后续创建/更新。</p>
+                            <p class="section-tip">用于展示 Bot 在线状态、Ping、运行时间和被监控角色人数。监控频道可留空，Bot 命令也可后续创建/更新。</p>
                         </div>
                     </div>
 
@@ -299,7 +299,7 @@
 
                     <label class="field output-field">
                         <span>config.json</span>
-                        <textarea id="configOutput" rows="16" readonly spellcheck="false"></textarea>
+                        <textarea id="configOutput" rows="12" readonly spellcheck="false"></textarea>
                     </label>
                     <div class="actions-row">
                         <button id="copyConfig" class="secondary" type="button">复制 JSON</button>
