@@ -150,7 +150,7 @@ JSBOT_CONFIG_PATH=/app/data/config.json
 NODE_ENV=production
 ```
 
-如果没有手动设置 `JSBOT_WEB_PASSWORD`，容器启动时会自动生成一个登录密码，保存到 `/app/data/web-password.txt`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后给 `jsbot` 服务绑定 Zeabur 域名，打开域名后使用 Basic Auth 登录：用户名默认 `admin`，密码使用日志里打印的自动生成密码。然后在网页中填写 Discord Token、服务器 ID、频道/角色 ID、FastGPT Key 等信息，点击“保存配置并重启 Bot”。配置会保存到持久化的 `/app/data/config.json`。
+如果没有手动设置 `JSBOT_WEB_PASSWORD`，容器启动时会自动生成一个登录密码，保存到 `/app/data/web-password.txt`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后给 `jsbot` 服务绑定 Zeabur 域名，打开域名后使用 Basic Auth 登录：用户名默认 `admin`，密码使用日志里打印的自动生成密码。然后在网页中填写 Discord Token、服务器 ID、频道/角色 ID、AI SK / OpenAI 兼容接口、投票系统和运行监控等信息，点击“保存配置并重启 Bot”。配置会保存到持久化的 `/app/data/config.json`。
 
 如果你想固定密码，也可以手动设置：
 

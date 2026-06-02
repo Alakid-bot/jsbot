@@ -9,6 +9,80 @@ import { logTime } from '../../utils/logger.js';
 // 用于记录每个服务器最近使用的端点 (guildId => endpointUrl)
 const lastUsedEndpoints = new Map();
 
+function isOpenAICompatibleEndpoint(endpoint) {
+    return endpoint.provider === 'openai-compatible' || endpoint.type === 'openai-compatible' || Boolean(endpoint.model);
+}
+
+function contentItemsToText(content) {
+    if (typeof content === 'string') {
+        return content;
+    }
+
+    if (!Array.isArray(content)) {
+        return String(content ?? '');
+    }
+
+    return content
+        .map(item => {
+            if (typeof item === 'string') {
+                return item;
+            }
+
+            if (item?.type === 'text') {
+                return item.text || '';
+            }
+
+            if (item?.type === 'image_url') {
+                const imageUrl = typeof item.image_url === 'string' ? item.image_url : item.image_url?.url;
+                return imageUrl ? `[图片] ${imageUrl}` : '[图片]';
+            }
+
+            return JSON.stringify(item);
+        })
+        .filter(Boolean)
+        .join('\n');
+}
+
+function shouldUseTextContent(endpoint) {
+    const contentFormat = endpoint.contentFormat || 'auto';
+
+    if (contentFormat === 'text') {
+        return true;
+    }
+
+    if (contentFormat === 'multimodal') {
+        return false;
+    }
+
+    return isOpenAICompatibleEndpoint(endpoint);
+}
+
+export function buildEndpointRequestBody(requestBody, endpoint) {
+    const endpointBody = {
+        ...requestBody,
+        messages: Array.isArray(requestBody.messages)
+            ? requestBody.messages.map(message => ({ ...message }))
+            : requestBody.messages,
+    };
+
+    if (endpoint.model) {
+        endpointBody.model = endpoint.model;
+    }
+
+    if (isOpenAICompatibleEndpoint(endpoint)) {
+        delete endpointBody.chatId;
+    }
+
+    if (shouldUseTextContent(endpoint) && Array.isArray(endpointBody.messages)) {
+        endpointBody.messages = endpointBody.messages.map(message => ({
+            ...message,
+            content: contentItemsToText(message.content),
+        }));
+    }
+
+    return endpointBody;
+}
+
 // 确保日志目录存在
 try {
     mkdirSync('./data/qalog', { recursive: true });
@@ -241,7 +315,7 @@ export async function sendToFastGPT(requestBody, guildConfig, interaction = null
 
             const progressTimer = setTimeout(updateProgress, progressInterval);
 
-            const response = await axios.post(apiUrl, requestBody, {
+            const response = await axios.post(apiUrl, buildEndpointRequestBody(requestBody, endpoint), {
                 headers: {
                     Authorization: `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',

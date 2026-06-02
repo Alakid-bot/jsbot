@@ -37,8 +37,11 @@
                 "enabled": "boolean",
                 "endpoints": [
                     {
+                        "provider": "string (fastgpt | openai-compatible | custom)",
                         "url": "string",
-                        "key": "string"
+                        "key": "string",
+                        "model": "string | optional, required for openai-compatible endpoints",
+                        "contentFormat": "string (auto | text | multimodal)"
                     }
                 ],
                 "endpointNames": {

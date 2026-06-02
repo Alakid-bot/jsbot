@@ -12,7 +12,7 @@
                 <p class="eyebrow">JSBot Configuration Wizard</p>
                 <h1>Discord Bot 配置向导</h1>
                 <p class="hero-text">
-                    在浏览器中填写 Discord Token、服务器 ID、频道/角色 ID、FastGPT Key 等信息。Zeabur 在线模式可直接保存配置并重启 Bot。
+                    在浏览器中填写 Discord Token、服务器 ID、频道/角色 ID、AI SK、OpenAI 兼容接口、投票系统和运行监控。Zeabur 在线模式可直接保存配置并重启 Bot。
                 </p>
             </div>
             <div class="hero-card">
@@ -168,19 +168,31 @@
                     <div class="section-heading">
                         <span class="step">5</span>
                         <div>
-                            <h2>FastGPT / AI 答疑</h2>
-                            <p>这个 Bot 当前配置 FastGPT Endpoint。OpenAI/DeepSeek 等模型 SK 通常放在 FastGPT 侧。</p>
+                            <h2>AI 答疑接口</h2>
+                            <p>可配置 FastGPT，也可以直接配置 OpenAI 兼容接口，例如 OpenAI、DeepSeek、硅基流动、OpenRouter 等。</p>
                         </div>
                     </div>
 
                     <label class="switch-field inline">
                         <input id="fastgptEnabled" type="checkbox" />
-                        <span><strong>启用 FastGPT</strong><small>启用后至少配置一个 endpoint。</small></span>
+                        <span><strong>启用 AI 答疑</strong><small>启用后至少配置一个接口。保存后 Bot 会用这里的 SK/API Key 调用模型。</small></span>
                     </label>
 
                     <div id="fastgptEndpoints" class="endpoint-list"></div>
 
-                    <button id="addEndpoint" class="secondary" type="button">+ 添加 FastGPT Endpoint</button>
+                    <div class="hint-card">
+                        <strong>OpenAI 兼容接口填写示例</strong>
+                        <code>https://api.openai.com/v1/chat/completions</code>
+                        <code>https://api.deepseek.com/chat/completions</code>
+                        <small>也可以只填 <code>https://api.openai.com/v1</code> 或服务商根地址；保存时会自动补齐 <code>/chat/completions</code>。普通文本模型选“纯文本兼容”，视觉模型可选“多模态/图片”。SK/API Key 会写入服务器 <code>config.json</code>，不要提交到 GitHub。</small>
+                    </div>
+
+                    <div class="actions-row endpoint-actions">
+                        <button data-add-endpoint="openai" class="secondary" type="button">+ OpenAI</button>
+                        <button data-add-endpoint="deepseek" class="secondary" type="button">+ DeepSeek</button>
+                        <button data-add-endpoint="fastgpt" class="secondary" type="button">+ FastGPT</button>
+                        <button id="addEndpoint" class="secondary" type="button">+ 空白接口</button>
+                    </div>
                 </section>
 
                 <section class="section-card">
@@ -188,7 +200,7 @@
                         <span class="step">6</span>
                         <div>
                             <h2>社区治理 / 投票系统</h2>
-                            <p>不使用法院/议会流程时保持关闭。</p>
+                            <p>用于处罚上诉、议案提案、辩论 Forum 和投票截止时间。下面用“小时”填写，保存时会自动转成毫秒。</p>
                         </div>
                     </div>
 
@@ -201,12 +213,12 @@
                         <label class="field"><span>法院频道 ID</span><input id="courtChannelId" type="text" inputmode="numeric" /></label>
                         <label class="field"><span>提案频道 ID</span><input id="motionChannelId" type="text" inputmode="numeric" /></label>
                         <label class="field"><span>辩论频道 ID</span><input id="debateChannelId" type="text" inputmode="numeric" /></label>
-                        <label class="field"><span>appealDuration 毫秒</span><input id="appealDuration" type="number" min="0" value="259200000" /></label>
-                        <label class="field"><span>summitDuration 毫秒</span><input id="summitDuration" type="number" min="0" value="604800000" /></label>
-                        <label class="field"><span>requiredSupports</span><input id="requiredSupports" type="number" min="1" value="20" /></label>
+                        <label class="field"><span>上诉有效期（小时）</span><input id="appealDurationHours" type="number" min="0" step="0.5" value="72" /></label>
+                        <label class="field"><span>提案征集期（小时）</span><input id="summitDurationHours" type="number" min="0" step="0.5" value="168" /></label>
+                        <label class="field"><span>进入辩论所需支持数</span><input id="requiredSupports" type="number" min="1" value="20" /></label>
                         <label class="field"><span>辩论 Tag ID</span><input id="debateTagId" type="text" inputmode="numeric" /></label>
                         <label class="field"><span>提案 Tag ID</span><input id="motionTagId" type="text" inputmode="numeric" /></label>
-                        <label class="field"><span>voteDuration 毫秒</span><input id="voteDuration" type="number" min="0" value="86400000" /></label>
+                        <label class="field"><span>投票持续时间（小时）</span><input id="voteDurationHours" type="number" min="0" step="0.5" value="24" /></label>
                     </div>
                 </section>
 
@@ -215,7 +227,7 @@
                         <span class="step">7</span>
                         <div>
                             <h2>运行监控</h2>
-                            <p>用于展示 Bot 在线状态、Ping、角色人数等信息。</p>
+                            <p>用于展示 Bot 在线状态、Ping、运行时间和被监控角色人数。监控频道可留空，Bot 命令也可后续创建/更新。</p>
                         </div>
                     </div>
 
@@ -277,6 +289,8 @@
                     </div>
 
                     <div id="warnings" class="warnings" hidden></div>
+
+                    <div id="configSummary" class="config-summary" aria-live="polite"></div>
 
                     <label class="field output-field">
                         <span>config.json</span>

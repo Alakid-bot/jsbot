@@ -1,6 +1,6 @@
 # Zeabur 部署模板
 
-本目录提供在 Zeabur 部署该 Discord Bot 的模板。容器会同时启动一个受密码保护的 Web 配置页，用于在 Zeabur 域名里填写 Discord Token、服务器 ID、频道/角色 ID、FastGPT Key 等配置；保存后同一进程会启动或重启 Bot。
+本目录提供在 Zeabur 部署该 Discord Bot 的模板。容器会同时启动一个受密码保护的 Web 配置页，用于在 Zeabur 域名里填写 Discord Token、服务器 ID、频道/角色 ID、AI SK / OpenAI 兼容接口、投票系统、运行监控等配置；保存后同一进程会启动或重启 Bot。
 
 ## 文件说明
 
@@ -65,7 +65,7 @@ JSBOT_WEB_PASSWORD=CHANGE_ME_TO_A_LONG_RANDOM_PASSWORD
 1. 打开 Zeabur 给 `jsbot` 服务分配的域名。
 2. 浏览器会弹出 Basic Auth 登录框。
 3. 用户名默认是 `admin`，密码查看 Zeabur 日志中的自动生成密码；如果你手动设置了 `JSBOT_WEB_PASSWORD`，则使用你设置的密码。
-4. 填写 Discord Token、Guild ID、频道/角色 ID、FastGPT Endpoint/Key 等配置。
+4. 填写 Discord Token、Guild ID、频道/角色 ID、AI 答疑接口/SK/模型、投票系统、运行监控等配置。
 5. 点击“保存配置并重启 Bot”。配置会写入持久化的 `/app/data/config.json`。
 
 如果你仍想用环境变量预置初始配置，也可以本地生成：
@@ -104,7 +104,8 @@ Zeabur 部署后访问 Bot 服务域名，即可看到配置页。页面支持�
 
 - 读取服务器已有 `config.json`
 - 填写或修改 Discord Token、服务器 ID、频道/角色 ID
-- 填写 FastGPT Endpoint URL 和 API Key
+- 填写 FastGPT 或 OpenAI 兼容接口 URL、SK/API Key、模型名
+- 调整 AI 答疑、社区投票系统和运行监控配置
 - 生成并预览 `config.json` / `JSBOT_CONFIG_JSON_BASE64`
 - 保存到 `/app/data/config.json`
 - 保存后自动启动或重启 Bot

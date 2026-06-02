@@ -33,7 +33,15 @@
             },
             "fastgpt": {
                 "enabled": false,
-                "endpoints": [],
+                "endpoints": [
+                    {
+                        "provider": "openai-compatible",
+                        "url": "https://api.openai.com/v1/chat/completions",
+                        "key": "sk-REPLACE_ME",
+                        "model": "gpt-4o-mini",
+                        "contentFormat": "text"
+                    }
+                ],
                 "endpointNames": {}
             },
             "courtSystem": {

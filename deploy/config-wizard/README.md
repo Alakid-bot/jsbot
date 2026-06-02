@@ -21,9 +21,9 @@ deploy/config-wizard/index.html
 - 常用频道、Thread、Category ID
 - Forum / Thread 自动化配置
 - 身份组申请配置
-- FastGPT Endpoint URL 和 API Key
-- 社区治理 / 投票系统配置
-- Bot 运行监控配置
+- AI 答疑接口：FastGPT、OpenAI 兼容 API、SK/API Key、模型名
+- 社区治理 / 投票系统配置：法院频道、提案/辩论 Forum、支持数和投票时长
+- Bot 运行监控配置：状态频道、被监控角色、角色显示名
 
 页面会自动生成：
 
@@ -43,7 +43,7 @@ JSBOT_CONFIG_PATH=/app/data/config.json
 NODE_ENV=production
 ```
 
-如果不设置 `JSBOT_WEB_PASSWORD`，容器会自动生成密码，保存到 `JSBOT_WEB_PASSWORD_FILE`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后打开 Zeabur 域名，登录后填写并保存配置即可。如果使用仓库根目录的 `zeabur-template.yaml`，PostgreSQL 会自动创建，通常不需要额外填写 `JSBOT_PG_CONFIG_JSON_BASE64`。
+如果不设置 `JSBOT_WEB_PASSWORD`，容器会自动生成密码，保存到 `JSBOT_WEB_PASSWORD_FILE`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后打开 Zeabur 域名，登录后可直接修改 AI 答疑、投票系统、运行监控等配置并保存重启 Bot。如果使用仓库根目录的 `zeabur-template.yaml`，PostgreSQL 会自动创建，通常不需要额外填写 `JSBOT_PG_CONFIG_JSON_BASE64`。
 
 ## 安全说明
 

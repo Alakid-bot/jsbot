@@ -301,8 +301,16 @@ export class GuildManager {
                     `警告: 服务器 ${guildId} FastGPT endpoint #${index + 1} 配置不完整 (缺少 url 或 key)`,
                     true,
                 );
+            } else if ((ep.provider === 'openai-compatible' || ep.type === 'openai-compatible') && !ep.model) {
+                logTime(
+                    `警告: 服务器 ${guildId} OpenAI兼容 endpoint #${index + 1} 缺少 model`,
+                    true,
+                );
             } else {
-                validEndpoints.push(ep);
+                validEndpoints.push({
+                    ...ep,
+                    provider: ep.provider || ep.type || (ep.model ? 'openai-compatible' : 'fastgpt'),
+                });
             }
         });
 

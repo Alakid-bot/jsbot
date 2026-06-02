@@ -35,12 +35,12 @@
         'courtChannelId',
         'motionChannelId',
         'debateChannelId',
-        'appealDuration',
-        'summitDuration',
+        'appealDurationHours',
+        'summitDurationHours',
         'requiredSupports',
         'debateTagId',
         'motionTagId',
-        'voteDuration',
+        'voteDurationHours',
         'monitorEnabled',
         'roleMonitorCategoryId',
         'monitorChannelId',
@@ -62,6 +62,18 @@
         return Number.isFinite(value) ? value : fallback;
     }
 
+    function durationMsFromHours(id, fallbackHours) {
+        const value = Number(trimValue(id));
+        const hours = Number.isFinite(value) ? value : fallbackHours;
+        return Math.max(0, Math.round(hours * 60 * 60 * 1000));
+    }
+
+    function hoursFromMs(value, fallbackHours) {
+        const milliseconds = Number(value);
+        const hours = Number.isFinite(milliseconds) ? milliseconds / 60 / 60 / 1000 : fallbackHours;
+        return Number.isInteger(hours) ? String(hours) : String(Number(hours.toFixed(2)));
+    }
+
     function parseList(value) {
         return value
             .split(/[\n,\s]+/)
@@ -79,6 +91,94 @@
             return `${parsed.protocol}//${parsed.hostname}`;
         } catch (_error) {
             return url;
+        }
+    }
+
+    function normalizeOpenAICompatibleUrl(url) {
+        const trimmed = url.trim().replace(/\/+$/, '');
+        if (!trimmed || /\/chat\/completions$/i.test(trimmed)) {
+            return trimmed;
+        }
+
+        if (/\/v\d+$/i.test(trimmed)) {
+            return `${trimmed}/chat/completions`;
+        }
+
+        try {
+            const parsed = new URL(trimmed);
+            if (/deepseek\.com$/i.test(parsed.hostname)) {
+                return `${trimmed}/chat/completions`;
+            }
+        } catch (_error) {
+            // 非 URL 时保持后续通用拼接和提醒逻辑。
+        }
+
+        return `${trimmed}/v1/chat/completions`;
+    }
+
+    function endpointPreset(type) {
+        if (type === 'openai') {
+            return {
+                provider: 'openai-compatible',
+                url: 'https://api.openai.com/v1/chat/completions',
+                model: 'gpt-4o-mini',
+                name: 'OpenAI',
+                contentFormat: 'text',
+            };
+        }
+
+        if (type === 'deepseek') {
+            return {
+                provider: 'openai-compatible',
+                url: 'https://api.deepseek.com/chat/completions',
+                model: 'deepseek-chat',
+                name: 'DeepSeek',
+                contentFormat: 'text',
+            };
+        }
+
+        if (type === 'fastgpt') {
+            return {
+                provider: 'fastgpt',
+                url: 'https://api.fastgpt.in/api/v1/chat/completions',
+                name: 'FastGPT',
+                contentFormat: 'multimodal',
+            };
+        }
+
+        return {};
+    }
+
+    function recommendedContentFormat(provider) {
+        if (provider === 'fastgpt') {
+            return 'multimodal';
+        }
+
+        if (provider === 'openai-compatible') {
+            return 'text';
+        }
+
+        return 'auto';
+    }
+
+    function applyEndpointProviderHints(row) {
+        const provider = row.querySelector('.endpoint-provider').value;
+        const urlInput = row.querySelector('.endpoint-url');
+        const keyInput = row.querySelector('.endpoint-key');
+        const modelInput = row.querySelector('.endpoint-model');
+
+        if (provider === 'fastgpt') {
+            urlInput.placeholder = 'https://api.fastgpt.in/api/v1/chat/completions';
+            keyInput.placeholder = 'FastGPT API Key';
+            modelInput.placeholder = 'FastGPT 可留空';
+        } else if (provider === 'openai-compatible') {
+            urlInput.placeholder = 'https://api.openai.com/v1/chat/completions';
+            keyInput.placeholder = 'sk-...';
+            modelInput.placeholder = 'gpt-4o-mini / deepseek-chat';
+        } else {
+            urlInput.placeholder = 'https://your-provider.example/v1/chat/completions';
+            keyInput.placeholder = 'API Key / Bearer Token';
+            modelInput.placeholder = '模型名，可选';
         }
     }
 
@@ -110,23 +210,50 @@
         row.className = 'endpoint-row';
         row.innerHTML = `
             <label class="field">
-                <span>Endpoint URL</span>
-                <input class="endpoint-url" type="url" placeholder="https://api.fastgpt.in/api/v1/chat/completions" />
+                <span>接口类型</span>
+                <select class="endpoint-provider">
+                    <option value="fastgpt">FastGPT</option>
+                    <option value="openai-compatible">OpenAI 兼容</option>
+                    <option value="custom">自定义</option>
+                </select>
             </label>
             <label class="field">
-                <span>API Key</span>
-                <input class="endpoint-key" type="password" placeholder="FastGPT API Key" autocomplete="new-password" />
+                <span>API 接口地址</span>
+                <input class="endpoint-url" type="url" placeholder="https://api.openai.com/v1/chat/completions" />
+                <small>OpenAI 兼容接口可填完整 chat/completions，也可只填 /v1 或服务根地址。</small>
+            </label>
+            <label class="field">
+                <span>SK / API Key</span>
+                <input class="endpoint-key" type="password" placeholder="sk-..." autocomplete="new-password" />
+            </label>
+            <label class="field">
+                <span>模型名</span>
+                <input class="endpoint-model" type="text" placeholder="gpt-4o-mini / deepseek-chat" />
+                <small>FastGPT 可留空；OpenAI 兼容通常必填。</small>
+            </label>
+            <label class="field">
+                <span>内容格式</span>
+                <select class="endpoint-content-format">
+                    <option value="auto">自动</option>
+                    <option value="text">纯文本兼容</option>
+                    <option value="multimodal">多模态/图片</option>
+                </select>
+                <small>DeepSeek 等文本模型选“纯文本”；视觉模型可选“多模态”。</small>
             </label>
             <label class="field">
                 <span>显示名称</span>
-                <input class="endpoint-name" type="text" placeholder="默认AI答疑" />
+                <input class="endpoint-name" type="text" placeholder="默认 AI 答疑" />
             </label>
             <button class="danger remove-endpoint" type="button">删除</button>
         `;
 
+        row.querySelector('.endpoint-provider').value = endpoint.provider || (endpoint.model ? 'openai-compatible' : 'fastgpt');
         row.querySelector('.endpoint-url').value = endpoint.url || '';
         row.querySelector('.endpoint-key').value = endpoint.key || '';
+        row.querySelector('.endpoint-model').value = endpoint.model || '';
+        row.querySelector('.endpoint-content-format').value = endpoint.contentFormat || recommendedContentFormat(row.querySelector('.endpoint-provider').value);
         row.querySelector('.endpoint-name').value = endpoint.name || '';
+        applyEndpointProviderHints(row);
 
         return row;
     }
@@ -148,24 +275,42 @@
         const rows = getEndpointRows();
 
         rows.forEach((row, index) => {
-            const url = row.querySelector('.endpoint-url').value.trim();
+            const provider = row.querySelector('.endpoint-provider').value.trim() || 'fastgpt';
+            const rawUrl = row.querySelector('.endpoint-url').value.trim();
             const key = row.querySelector('.endpoint-key').value.trim();
+            const model = row.querySelector('.endpoint-model').value.trim();
+            const contentFormat = row.querySelector('.endpoint-content-format').value.trim() || 'auto';
             const name = row.querySelector('.endpoint-name').value.trim();
 
-            if (!url && !key && !name) {
+            if (!rawUrl && !key && !model && !name) {
                 return;
             }
 
+            const url = provider === 'openai-compatible' ? normalizeOpenAICompatibleUrl(rawUrl) : rawUrl;
+
             if (!url || !key) {
-                warnings.push(`FastGPT endpoint #${index + 1} 缺少 URL 或 API Key，已不会写入 endpoints。`);
+                warnings.push(`AI 接口 #${index + 1} 缺少 URL 或 SK/API Key，已不会写入 endpoints。`);
                 return;
             }
 
             if (!/^https?:\/\//i.test(url)) {
-                warnings.push(`FastGPT endpoint #${index + 1} 建议使用 http(s) URL。`);
+                warnings.push(`AI 接口 #${index + 1} 建议使用 http(s) URL。`);
             }
 
-            endpoints.push({ url, key });
+            if (provider === 'openai-compatible') {
+                if (!model) {
+                    warnings.push(`OpenAI 兼容接口 #${index + 1} 模型名为空，已不会写入 endpoints。`);
+                    return;
+                }
+            }
+
+            endpoints.push({
+                provider,
+                url,
+                key,
+                contentFormat,
+                ...(model ? { model } : {}),
+            });
 
             if (name) {
                 endpointNames[endpointNameKey(url)] = name;
@@ -173,7 +318,7 @@
         });
 
         if ($('fastgptEnabled').checked && endpoints.length === 0) {
-            warnings.push('已启用 FastGPT，但还没有可用 endpoint。');
+            warnings.push('已启用 AI 答疑，但还没有可用接口。');
         }
 
         return {
@@ -277,12 +422,12 @@
                 courtChannelId: nullableValue('courtChannelId'),
                 motionChannelId: nullableValue('motionChannelId'),
                 debateChannelId: nullableValue('debateChannelId'),
-                appealDuration: numberValue('appealDuration', 259200000),
-                summitDuration: numberValue('summitDuration', 604800000),
+                appealDuration: durationMsFromHours('appealDurationHours', 72),
+                summitDuration: durationMsFromHours('summitDurationHours', 168),
                 requiredSupports: numberValue('requiredSupports', 20),
                 debateTagId: nullableValue('debateTagId'),
                 motionTagId: nullableValue('motionTagId'),
-                voteDuration: numberValue('voteDuration', 86400000),
+                voteDuration: durationMsFromHours('voteDurationHours', 24),
             },
             monitor: {
                 enabled: $('monitorEnabled').checked,
@@ -322,6 +467,53 @@
         $('statusPill').classList.remove('ok');
     }
 
+    function renderSummary(config) {
+        const box = $('configSummary');
+        if (!box) {
+            return;
+        }
+
+        const guildId = Object.keys(config.guilds || {})[0] || '';
+        const guildConfig = config.guilds?.[guildId] || {};
+        const aiConfig = guildConfig.fastgpt || {};
+        const endpoints = Array.isArray(aiConfig.endpoints) ? aiConfig.endpoints : [];
+        const openaiCount = endpoints.filter((endpoint) => endpoint.provider === 'openai-compatible' || endpoint.model).length;
+        const courtSystem = guildConfig.courtSystem || {};
+        const monitor = guildConfig.monitor || {};
+
+        const items = [
+            {
+                title: 'AI 答疑',
+                value: aiConfig.enabled ? `启用，${endpoints.length} 个接口` : '关闭',
+                detail: openaiCount ? `${openaiCount} 个 OpenAI 兼容接口` : '可添加 FastGPT 或 OpenAI 兼容接口',
+            },
+            {
+                title: '投票系统',
+                value: courtSystem.enabled ? `启用，投票 ${hoursFromMs(courtSystem.voteDuration, 24)} 小时` : '关闭',
+                detail: courtSystem.enabled ? `需要 ${courtSystem.requiredSupports || 20} 个支持进入辩论` : '法院/议案/辩论流程未启用',
+            },
+            {
+                title: '运行监控',
+                value: monitor.enabled ? '启用' : '关闭',
+                detail: monitor.enabled
+                    ? `监控角色：${monitor.roleDisplayName || '角色'}${monitor.monitorChannelId ? `，频道 ${monitor.monitorChannelId}` : '，频道待配置'}`
+                    : '可展示 Bot 在线状态和角色人数',
+            },
+        ];
+
+        box.innerHTML = items
+            .map(
+                (item) => `
+                    <div class="summary-item">
+                        <span>${escapeHtml(item.title)}</span>
+                        <strong>${escapeHtml(item.value)}</strong>
+                        <small>${escapeHtml(item.detail)}</small>
+                    </div>
+                `,
+            )
+            .join('');
+    }
+
     function escapeHtml(value) {
         return value.replace(/[&<>"]/g, (char) => {
             const entities = {
@@ -342,6 +534,7 @@
         $('configOutput').value = json;
         $('base64Output').value = base64;
         $('envOutput').value = `JSBOT_CONFIG_JSON_BASE64=${base64}\nNODE_ENV=production\n`;
+        renderSummary(config);
         renderWarnings(warnings);
     }
 
@@ -428,6 +621,8 @@
                 <div><dt>Bot</dt><dd>${escapeHtml(botState)}</dd></div>
                 <div><dt>配置</dt><dd>${escapeHtml(configState)}</dd></div>
                 <div><dt>配置路径</dt><dd>${escapeHtml(status.config?.path || '-')}</dd></div>
+                <div><dt>更新时间</dt><dd>${escapeHtml(status.config?.updatedAt || '-')}</dd></div>
+                <div><dt>Web 端口</dt><dd>${escapeHtml(String(status.web?.port || '-'))}</dd></div>
                 <div><dt>最后启动</dt><dd>${escapeHtml(status.bot?.lastStartAt || '-')}</dd></div>
                 <div><dt>最后退出</dt><dd>${escapeHtml(status.bot?.lastExit?.at || '-')}</dd></div>
             </dl>
@@ -524,10 +719,10 @@
         $('serverType').value = 'Main server';
         $('automationMode').value = 'disabled';
         $('automationThreshold').value = '960';
-        $('appealDuration').value = '259200000';
-        $('summitDuration').value = '604800000';
+        $('appealDurationHours').value = '72';
+        $('summitDurationHours').value = '168';
         $('requiredSupports').value = '20';
-        $('voteDuration').value = '86400000';
+        $('voteDurationHours').value = '24';
         $('roleDisplayName').value = '角色';
         $('fastgptEndpoints').innerHTML = '';
         ensureEndpointRow();
@@ -584,6 +779,9 @@
                 makeEndpointRow({
                     url: endpoint.url || '',
                     key: endpoint.key || '',
+                    provider: endpoint.provider || endpoint.type || (endpoint.model ? 'openai-compatible' : 'fastgpt'),
+                    model: endpoint.model || '',
+                    contentFormat: endpoint.contentFormat || 'auto',
                     name: endpointNames[endpointNameKey(endpoint.url || '')] || endpointNames[endpoint.url] || '',
                 }),
             );
@@ -595,12 +793,12 @@
         setNullable('courtChannelId', courtSystem.courtChannelId);
         setNullable('motionChannelId', courtSystem.motionChannelId);
         setNullable('debateChannelId', courtSystem.debateChannelId);
-        $('appealDuration').value = courtSystem.appealDuration ?? 259200000;
-        $('summitDuration').value = courtSystem.summitDuration ?? 604800000;
+        $('appealDurationHours').value = hoursFromMs(courtSystem.appealDuration, 72);
+        $('summitDurationHours').value = hoursFromMs(courtSystem.summitDuration, 168);
         $('requiredSupports').value = courtSystem.requiredSupports ?? 20;
         setNullable('debateTagId', courtSystem.debateTagId);
         setNullable('motionTagId', courtSystem.motionTagId);
-        $('voteDuration').value = courtSystem.voteDuration ?? 86400000;
+        $('voteDurationHours').value = hoursFromMs(courtSystem.voteDuration, 24);
 
         const monitor = guildConfig.monitor || {};
         $('monitorEnabled').checked = Boolean(monitor.enabled);
@@ -656,6 +854,22 @@
         $('addEndpoint').addEventListener('click', () => {
             $('fastgptEndpoints').appendChild(makeEndpointRow());
             renderOutput();
+        });
+
+        document.querySelectorAll('[data-add-endpoint]').forEach((button) => {
+            button.addEventListener('click', () => {
+                $('fastgptEndpoints').appendChild(makeEndpointRow(endpointPreset(button.dataset.addEndpoint)));
+                renderOutput();
+            });
+        });
+
+        $('fastgptEndpoints').addEventListener('change', (event) => {
+            const provider = event.target.closest('.endpoint-provider');
+            if (provider) {
+                const row = provider.closest('.endpoint-row');
+                row.querySelector('.endpoint-content-format').value = recommendedContentFormat(provider.value);
+                applyEndpointProviderHints(row);
+            }
         });
 
         $('fastgptEndpoints').addEventListener('click', (event) => {

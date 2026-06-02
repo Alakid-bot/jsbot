@@ -274,13 +274,32 @@ textarea:focus {
 
 .endpoint-row {
     display: grid;
-    grid-template-columns: minmax(12rem, 1.4fr) minmax(10rem, 1fr) minmax(8rem, 0.8fr) auto;
+    grid-template-columns: minmax(8rem, 0.75fr) minmax(14rem, 1.35fr) minmax(10rem, 0.95fr) minmax(9rem, 0.8fr) minmax(9rem, 0.85fr) minmax(8rem, 0.8fr) auto;
     gap: 0.75rem;
     align-items: end;
     border: 1px dashed #ccd7e6;
     border-radius: 1rem;
     background: #fbfdff;
     padding: 0.9rem;
+}
+
+.hint-card {
+    display: grid;
+    gap: 0.45rem;
+    border: 1px solid rgba(88, 101, 242, 0.16);
+    border-radius: 1rem;
+    background: var(--primary-soft);
+    color: #24304a;
+    margin-bottom: 1rem;
+    padding: 0.85rem;
+}
+
+.hint-card strong {
+    color: var(--primary-dark);
+}
+
+.endpoint-actions {
+    margin-top: 0.2rem;
 }
 
 button,
@@ -405,6 +424,35 @@ button:active,
     padding-left: 1.2rem;
 }
 
+.config-summary {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.summary-item {
+    display: grid;
+    gap: 0.18rem;
+    border: 1px solid rgba(88, 101, 242, 0.14);
+    border-radius: 1rem;
+    background: #fbfdff;
+    padding: 0.8rem;
+}
+
+.summary-item span {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 900;
+}
+
+.summary-item strong {
+    color: var(--text);
+}
+
+.summary-item small {
+    color: var(--muted);
+    line-height: 1.45;
+}
+
 .output-field textarea {
     min-height: auto;
     background: #0f172a;
@@ -478,6 +526,16 @@ button:active,
 
     .sticky-output {
         position: static;
+    }
+}
+
+@media (max-width: 1380px) {
+    .endpoint-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .endpoint-row .remove-endpoint {
+        grid-column: 1 / -1;
     }
 }
 
