@@ -220,11 +220,14 @@
             <label class="field">
                 <span>API 接口地址</span>
                 <input class="endpoint-url" type="url" placeholder="https://api.openai.com/v1/chat/completions" />
-                <small>OpenAI 兼容接口可填完整 chat/completions，也可只填 /v1 或服务根地址。</small>
+                <small>可填完整 <code>/chat/completions</code> 地址，也可只填服务根地址（如 <code>https://api.openai.com/v1</code>），保存时会自动补齐。</small>
             </label>
             <label class="field">
-                <span>SK / API Key</span>
-                <input class="endpoint-key" type="password" placeholder="sk-..." autocomplete="new-password" />
+                <span>SK / API Key <em class="key-warning">会保存到服务器</em></span>
+                <div class="password-row">
+                    <input class="endpoint-key" type="password" placeholder="sk-..." autocomplete="new-password" />
+                    <button class="ghost small toggle-key" type="button">显示</button>
+                </div>
             </label>
             <label class="field">
                 <span>模型名</span>
@@ -247,13 +250,21 @@
             <button class="danger remove-endpoint" type="button">删除</button>
         `;
 
-        row.querySelector('.endpoint-provider').value = endpoint.provider || (endpoint.model ? 'openai-compatible' : 'fastgpt');
+        const providerSelect = row.querySelector('.endpoint-provider');
+        providerSelect.value = endpoint.provider || (endpoint.model ? 'openai-compatible' : 'fastgpt');
         row.querySelector('.endpoint-url').value = endpoint.url || '';
-        row.querySelector('.endpoint-key').value = endpoint.key || '';
+        const keyInput = row.querySelector('.endpoint-key');
+        keyInput.value = endpoint.key || '';
         row.querySelector('.endpoint-model').value = endpoint.model || '';
-        row.querySelector('.endpoint-content-format').value = endpoint.contentFormat || recommendedContentFormat(row.querySelector('.endpoint-provider').value);
+        row.querySelector('.endpoint-content-format').value = endpoint.contentFormat || recommendedContentFormat(providerSelect.value);
         row.querySelector('.endpoint-name').value = endpoint.name || '';
         applyEndpointProviderHints(row);
+
+        const toggleBtn = row.querySelector('.toggle-key');
+        toggleBtn.addEventListener('click', () => {
+            keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+            toggleBtn.textContent = keyInput.type === 'password' ? '显示' : '隐藏';
+        });
 
         return row;
     }
@@ -334,6 +345,107 @@
         });
     }
 
+    function validateForSave() {
+        const errors = [];
+        const token = trimValue('token');
+        const guildId = trimValue('guildId');
+
+        if (!token) {
+            errors.push('Discord Bot Token 为空，部署前必须填写。');
+        }
+
+        if (!guildId) {
+            errors.push('Guild / 服务器 ID 为空，部署前必须填写。');
+        } else if (!discordIdPattern.test(guildId)) {
+            errors.push('Guild / 服务器 ID 不像标准 Discord ID，请确认是否复制正确。');
+        }
+
+        if ($('fastgptEnabled').checked) {
+            const rows = getEndpointRows();
+            let validCount = 0;
+            rows.forEach((row, index) => {
+                const provider = row.querySelector('.endpoint-provider').value.trim() || 'fastgpt';
+                const rawUrl = row.querySelector('.endpoint-url').value.trim();
+                const key = row.querySelector('.endpoint-key').value.trim();
+                const model = row.querySelector('.endpoint-model').value.trim();
+                if (!rawUrl && !key && !model) return;
+
+                if (!rawUrl) errors.push(`AI 接口 #${index + 1} 缺少 URL。`);
+                if (!key) errors.push(`AI 接口 #${index + 1} 缺少 SK/API Key。`);
+                if (provider === 'openai-compatible' && !model) {
+                    errors.push(`AI 接口 #${index + 1} 为 OpenAI 兼容，必须填写模型名。`);
+                }
+                if (rawUrl && !/^https?:\/\//i.test(rawUrl)) {
+                    errors.push(`AI 接口 #${index + 1} URL 必须以 http(s) 开头。`);
+                }
+                if (rawUrl) {
+                    try {
+                        new URL(rawUrl);
+                    } catch (_error) {
+                        errors.push(`AI 接口 #${index + 1} URL 格式不正确。`);
+                    }
+                }
+                if (rawUrl && key && (provider !== 'openai-compatible' || model)) {
+                    validCount += 1;
+                }
+            });
+            if (validCount === 0) {
+                errors.push('已启用 AI 答疑，但还没有有效接口。请至少填写一个接口的 URL、SK/API Key 和模型名。');
+            }
+        }
+
+        if ($('courtEnabled').checked) {
+            const courtFields = [
+                ['courtChannelId', '法院频道 ID'],
+                ['motionChannelId', '提案频道 ID'],
+                ['debateChannelId', '辩论频道 ID'],
+                ['debateTagId', '辩论 Tag ID'],
+                ['motionTagId', '提案 Tag ID'],
+            ];
+            courtFields.forEach(([id, label]) => {
+                const value = trimValue(id);
+                if (!value) {
+                    errors.push(`已启用社区治理，${label} 不能为空。`);
+                } else if (!discordIdPattern.test(value)) {
+                    errors.push(`${label}「${value}」不像标准 Discord ID。`);
+                }
+            });
+            const appealHours = Number(trimValue('appealDurationHours'));
+            const summitHours = Number(trimValue('summitDurationHours'));
+            const voteHours = Number(trimValue('voteDurationHours'));
+            const requiredSupports = Number(trimValue('requiredSupports'));
+            if (!Number.isFinite(appealHours) || appealHours <= 0) {
+                errors.push('上诉有效期必须大于 0 小时。');
+            }
+            if (!Number.isFinite(summitHours) || summitHours <= 0) {
+                errors.push('提案征集期必须大于 0 小时。');
+            }
+            if (!Number.isFinite(voteHours) || voteHours <= 0) {
+                errors.push('投票持续时间必须大于 0 小时。');
+            }
+            if (!Number.isFinite(requiredSupports) || requiredSupports < 1) {
+                errors.push('进入辩论所需支持数必须至少为 1。');
+            }
+        }
+
+        if ($('monitorEnabled').checked) {
+            const monitorFields = [
+                ['roleMonitorCategoryId', '角色监控分类 ID'],
+                ['monitoredRoleId', '被监控角色 ID'],
+            ];
+            monitorFields.forEach(([id, label]) => {
+                const value = trimValue(id);
+                if (!value) {
+                    errors.push(`已启用运行监控，${label} 不能为空。`);
+                } else if (!discordIdPattern.test(value)) {
+                    errors.push(`${label}「${value}」不像标准 Discord ID。`);
+                }
+            });
+        }
+
+        return errors;
+    }
+
     function buildConfig() {
         const warnings = [];
         const token = trimValue('token');
@@ -389,6 +501,39 @@
                 warnings.push(`${label}「${value}」不像标准 Discord ID，请确认是否复制正确。`);
             }
         });
+
+        if ($('courtEnabled').checked) {
+            const courtFields = [
+                ['courtChannelId', '法院频道 ID'],
+                ['motionChannelId', '提案频道 ID'],
+                ['debateChannelId', '辩论频道 ID'],
+                ['debateTagId', '辩论 Tag ID'],
+                ['motionTagId', '提案 Tag ID'],
+            ];
+            courtFields.forEach(([id, label]) => {
+                const value = trimValue(id);
+                if (!value) warnings.push(`已启用社区治理，${label} 为空，法院系统可能无法正常工作。`);
+            });
+            const appealHours = Number(trimValue('appealDurationHours'));
+            const summitHours = Number(trimValue('summitDurationHours'));
+            const voteHours = Number(trimValue('voteDurationHours'));
+            const requiredSupports = Number(trimValue('requiredSupports'));
+            if (!Number.isFinite(appealHours) || appealHours <= 0) warnings.push('上诉有效期应大于 0 小时。');
+            if (!Number.isFinite(summitHours) || summitHours <= 0) warnings.push('提案征集期应大于 0 小时。');
+            if (!Number.isFinite(voteHours) || voteHours <= 0) warnings.push('投票持续时间应大于 0 小时。');
+            if (!Number.isFinite(requiredSupports) || requiredSupports < 1) warnings.push('进入辩论所需支持数应至少为 1。');
+        }
+
+        if ($('monitorEnabled').checked) {
+            const monitorFields = [
+                ['roleMonitorCategoryId', '角色监控分类 ID'],
+                ['monitoredRoleId', '被监控角色 ID'],
+            ];
+            monitorFields.forEach(([id, label]) => {
+                const value = trimValue(id);
+                if (!value) warnings.push(`已启用运行监控，${label} 为空，监控可能无法正常工作。`);
+            });
+        }
 
         const serverConfig = {
             serverType: trimValue('serverType') || 'Main server',
@@ -450,7 +595,7 @@
         };
     }
 
-    function renderWarnings(warnings) {
+    function renderWarnings(warnings, title = '需要确认：') {
         const box = $('warnings');
 
         if (!warnings.length) {
@@ -462,7 +607,7 @@
         }
 
         box.hidden = false;
-        box.innerHTML = `<strong>需要确认：</strong><ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul>`;
+        box.innerHTML = `<strong>${escapeHtml(title)}</strong><ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul>`;
         $('statusPill').textContent = `${warnings.length} 个提醒`;
         $('statusPill').classList.remove('ok');
     }
@@ -477,6 +622,7 @@
         const guildConfig = config.guilds?.[guildId] || {};
         const aiConfig = guildConfig.fastgpt || {};
         const endpoints = Array.isArray(aiConfig.endpoints) ? aiConfig.endpoints : [];
+        const endpointNames = aiConfig.endpointNames || {};
         const openaiCount = endpoints.filter((endpoint) => endpoint.provider === 'openai-compatible' || endpoint.model).length;
         const courtSystem = guildConfig.courtSystem || {};
         const monitor = guildConfig.monitor || {};
@@ -485,7 +631,15 @@
             {
                 title: 'AI 答疑',
                 value: aiConfig.enabled ? `启用，${endpoints.length} 个接口` : '关闭',
-                detail: openaiCount ? `${openaiCount} 个 OpenAI 兼容接口` : '可添加 FastGPT 或 OpenAI 兼容接口',
+                detail: (() => {
+                    if (!aiConfig.enabled) return '可添加 FastGPT 或 OpenAI 兼容接口';
+                    if (endpoints.length === 0) return '已启用但无有效接口，请检查配置';
+                    const names = endpoints.map((endpoint, index) => {
+                        const displayName = endpointNames[endpointNameKey(endpoint.url || '')] || endpointNames[endpoint.url];
+                        return displayName || `${endpoint.provider || '接口'} ${index + 1}`;
+                    });
+                    return names.join('、') + (openaiCount ? `（${openaiCount} 个 OpenAI 兼容）` : '');
+                })(),
             },
             {
                 title: '投票系统',
@@ -661,14 +815,15 @@
 
     async function saveServerConfig() {
         try {
-            const { config, warnings } = buildConfig();
-            if (warnings.some((warning) => warning.includes('为空'))) {
-                renderWarnings(warnings);
-                showServerStatus('请先填写必填项后再保存。', true);
+            const errors = validateForSave();
+            if (errors.length) {
+                renderWarnings(errors, '以下问题阻止保存：');
+                showServerStatus('请修正以下错误后再保存：' + errors[0], true);
                 return;
             }
 
             showServerStatus('正在保存配置并重启 Bot...');
+            const { config } = buildConfig();
             const payload = await apiRequest('/api/config', {
                 method: 'POST',
                 body: JSON.stringify({ config }),
@@ -914,6 +1069,7 @@
         utf8ToBase64,
         base64ToUtf8,
         applyConfig,
+        validateForSave,
     };
 
     ensureEndpointRow();

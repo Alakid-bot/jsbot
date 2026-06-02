@@ -243,7 +243,6 @@ textarea:focus {
     display: flex;
     gap: 0.75rem;
     align-items: flex-start;
-    min-height: 100%;
     border: 1px solid var(--line);
     border-radius: 1rem;
     background: #fbfdff;
@@ -508,6 +507,28 @@ button:active,
     min-width: 0;
     margin: 0;
     overflow-wrap: anywhere;
+}
+
+.warning-banner {
+    display: grid;
+    gap: 0.35rem;
+    border: 1px solid rgba(217, 72, 95, 0.22);
+    border-radius: 1rem;
+    background: var(--danger-soft);
+    color: #6b1c2a;
+    margin-bottom: 1rem;
+    padding: 0.85rem;
+}
+
+.warning-banner strong {
+    color: var(--danger);
+}
+
+.field .key-warning {
+    color: var(--danger);
+    font-size: 0.75rem;
+    font-style: normal;
+    font-weight: 800;
 }
 
 .footer {
