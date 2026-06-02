@@ -20,7 +20,7 @@
 2. 在 Zeabur 新建 Project，选择 **GitHub** 服务，并选择你的 fork 仓库；或使用根目录 `zeabur-template.yaml` 一键部署。
 3. Zeabur 会检测根目录 `Dockerfile`，按 Dockerfile 构建并运行。
 4. 在 Zeabur 服务的 **Environment Variables** 添加环境变量。
-5. 添加持久化 Volume，挂载到 `/app/data`，用于保存网页配置的 `config.json` 和网页登录 fallback 密码。运行时数据库状态统一写入 PostgreSQL。
+5. 添加持久化 Volume，挂载到 `/app/data`，用于保存网页登录 fallback 密码和 Bot 启动运行副本。网页配置和运行时数据库状态统一写入 PostgreSQL。
 6. 如需保留应用日志，也可以额外挂载 `/app/logs`。
 7. 给 Bot 服务绑定 Zeabur 域名，打开域名后进入配置页。
 
@@ -37,7 +37,7 @@ zeabur-template.yaml
 - `postgresql`：基于 `postgres:16` 的 PostgreSQL 数据库，持久化目录是 `/var/lib/postgresql/data`。
 - `jsbot`：从 `Alakid-bot/jsbot` 的 `main` 分支构建并运行 Bot，暴露 `8080` HTTP 配置页，持久化目录是 `/app/data` 和 `/app/logs`。
 
-Bot 的惩罚记录、流程/投票状态、监控消息 ID、轮播状态、用户黑名单、自助身份组放弃名单和发言统计都会写入 PostgreSQL。
+Bot 的主配置、惩罚记录、流程/投票状态、监控消息 ID、轮播状态、用户黑名单、自助身份组放弃名单和发言统计都会写入 PostgreSQL。
 
 模板中的 `jsbot` 服务依赖 `postgresql` 服务，Zeabur 会先启动数据库，再启动 Bot 配置页。
 
@@ -71,7 +71,7 @@ JSBOT_WEB_PASSWORD=CHANGE_ME_16_CHARS
 3. 密码使用 Zeabur 部署说明中的 `Web configuration password`，也就是环境变量 `PASSWORD` / `JSBOT_WEB_PASSWORD` 的同一个值；如果没有设置这些变量，则查看 Zeabur 日志里的自动生成密码。
 4. 输入正确密码并点击“进入控制台”。
 5. 填写 Discord Token、Guild ID、频道/角色 ID、AI 答疑接口/SK/模型、投票系统、自助身份组、发言统计查询权限、运行监控等配置。
-6. 点击“保存配置并重启 Bot”。配置会写入持久化的 `/app/data/config.json`。
+6. 点击“保存配置并重启 Bot”。配置会写入 PostgreSQL，`/app/data/config.json` 只作为 Bot 启动时生成的运行副本。
 7. 如果 Discord 的 `/` App 指令列表没有出现新命令，使用管理员账号执行 `/同步指令`。
 
 如果你仍想用环境变量预置初始配置，也可以本地生成：
@@ -108,7 +108,7 @@ Zeabur 部署后访问 Bot 服务域名，即可看到配置页。页面支持�
 - 填写 FastGPT 或 OpenAI 兼容接口 URL、SK/API Key、模型名
 - 调整 AI 答疑、社区投票系统、自助身份组、发言统计查询权限和运行监控配置
 - 生成并预览 `config.json` / `JSBOT_CONFIG_JSON_BASE64`
-- 保存到 `/app/data/config.json`
+- 保存到 PostgreSQL，并生成 `/app/data/config.json` 运行副本
 - 保存后自动启动或重启 Bot
 - 查看 Bot 是否运行、PID、配置路径等状态
 
@@ -174,7 +174,7 @@ base64 < config.json | tr -d '\n'
 - `config.json` 中的 `token` 必须是真实 Discord Bot Token。
 - `guilds` 至少需要包含你要部署命令的服务器 ID。
 - `commandsDeployed` 首次可设为 `false`，Bot 会尝试部署命令并在容器内更新 `config.json`。
-- 如果没有持久化 `/app/data`，网页保存的 `config.json` 和 fallback 登录密码会在重建容器后丢失；运行时状态由 PostgreSQL 持久化。
+- 如果没有持久化 `/app/data`，fallback 登录密码和 Bot 运行副本会在重建容器后丢失；网页保存的主配置和运行时状态由 PostgreSQL 持久化。
 - 稳定运行后可把 `commandsDeployed` 改为 `true`，避免每次重建都重新部署命令。
 
 不要将真实 `config.json`、`pg.config.json`、`.env` 提交到 GitHub；这些文件已在 `.gitignore` 中忽略。
