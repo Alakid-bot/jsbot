@@ -52,7 +52,7 @@ npx zeabur@latest template deploy -f zeabur-template.yaml
 TZ=Asia/Shanghai
 ```
 
-一键部署模板会把 Zeabur 生成的随机密码写入 `JSBOT_WEB_PASSWORD` 环境变量，配置页只校验这个密码，不校验用户名。浏览器 Basic Auth 登录框可能仍然显示用户名输入框，这是浏览器机制限制；用户名留空或填写任意内容都可以。
+一键部署模板会把 Zeabur 生成的随机密码写入固定的 `JSBOT_WEB_PASSWORD` 环境变量，并在 Zeabur 的 `Web configuration password` 部署说明中以密码类型显示，方便 user 复制。配置页打开后先显示独立登录页，只有一个密码输入框；输入正确密码后进入配置控制台。
 
 如果你想手动覆盖固定密码，可以在 Zeabur 环境变量里设置：
 
@@ -65,10 +65,11 @@ JSBOT_WEB_PASSWORD=CHANGE_ME_16_CHARS
 部署完成后：
 
 1. 打开 Zeabur 给 `jsbot` 服务分配的域名。
-2. 浏览器会弹出 Basic Auth 登录框。
-3. 用户名留空或填写任意内容，密码使用 Zeabur 环境变量 `JSBOT_WEB_PASSWORD`；如果没有设置该变量，则查看 Zeabur 日志里的自动生成密码。
-4. 填写 Discord Token、Guild ID、频道/角色 ID、AI 答疑接口/SK/模型、投票系统、运行监控等配置。
-5. 点击“保存配置并重启 Bot”。配置会写入持久化的 `/app/data/config.json`。
+2. 页面会先显示一个只有密码输入框的登录界面。
+3. 密码使用 Zeabur 部署说明中的 `Web configuration password`，也就是环境变量 `JSBOT_WEB_PASSWORD`；如果没有设置该变量，则查看 Zeabur 日志里的自动生成密码。
+4. 输入正确密码并点击“进入控制台”。
+5. 填写 Discord Token、Guild ID、频道/角色 ID、AI 答疑接口/SK/模型、投票系统、运行监控等配置。
+6. 点击“保存配置并重启 Bot”。配置会写入持久化的 `/app/data/config.json`。
 
 如果你仍想用环境变量预置初始配置，也可以本地生成：
 
@@ -84,7 +85,7 @@ JSBOT_CONFIG_JSON_BASE64=BASE64_ENCODED_CONFIG_JSON
 
 ## 推荐环境变量
 
-在线配置页必须有访问密码。一键部署模板会生成随机密码并写入 `JSBOT_WEB_PASSWORD`。如果该变量未设置，容器会自动生成 16 位 fallback 密码，保存到 `JSBOT_WEB_PASSWORD_FILE` 并打印到启动日志。
+在线配置页必须有访问密码。一键部署模板会生成随机密码并写入固定的 `JSBOT_WEB_PASSWORD`，同时在 Zeabur 部署说明中显示为 `Web configuration password` 供复制。如果该变量未设置，容器会自动生成 16 位 fallback 密码，保存到 `JSBOT_WEB_PASSWORD_FILE` 并打印到启动日志。
 
 ```env
 JSBOT_WEB_PASSWORD=ZEABUR_GENERATED_PASSWORD

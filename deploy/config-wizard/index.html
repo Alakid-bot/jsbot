@@ -7,21 +7,37 @@
         <link rel="stylesheet" href="./styles.css" />
     </head>
     <body>
-        <header class="hero">
-            <div>
-                <p class="eyebrow">JSBot Configuration Wizard</p>
-                <h1>Discord Bot 配置向导</h1>
-                <p class="hero-text">
-                    在浏览器中填写 Discord Token、服务器 ID、频道/角色 ID、AI SK、OpenAI 兼容接口、投票系统和运行监控。Zeabur 在线模式可直接保存配置并重启 Bot。
-                </p>
-            </div>
-            <div class="hero-card">
-                <strong id="modeTitle">本地处理</strong>
-                <span id="modeDescription">本页面可本地生成配置；部署到 Zeabur 后会通过密码保护并保存到服务器持久化目录。</span>
-            </div>
-        </header>
+        <section id="loginView" class="login-view" hidden>
+            <form id="loginForm" class="login-card" autocomplete="off">
+                <p class="eyebrow">JSBot Configuration</p>
+                <h1>进入配置控制台</h1>
+                <p class="login-copy">请输入 Zeabur 中展示的 <code>JSBOT_WEB_PASSWORD</code>。这里只需要密码，不需要用户名。</p>
+                <label class="field">
+                    <span>访问密码</span>
+                    <input id="loginPassword" type="password" autocomplete="current-password" placeholder="输入网页登录密码" />
+                </label>
+                <button id="loginButton" class="primary" type="submit">进入控制台</button>
+                <p id="loginStatus" class="copy-status" aria-live="polite"></p>
+            </form>
+        </section>
 
-        <main class="layout">
+        <div id="consoleView" hidden>
+            <header class="hero">
+                <div>
+                    <p class="eyebrow">JSBot Configuration Wizard</p>
+                    <h1>Discord Bot 配置向导</h1>
+                    <p class="hero-text">
+                        在浏览器中填写 Discord Token、服务器 ID、频道/角色 ID、AI SK、OpenAI 兼容接口、投票系统和运行监控。Zeabur 在线模式可直接保存配置并重启 Bot。
+                    </p>
+                </div>
+                <div class="hero-card">
+                    <strong id="modeTitle">本地处理</strong>
+                    <span id="modeDescription">本页面可本地生成配置；部署到 Zeabur 后会通过密码保护并保存到服务器持久化目录。</span>
+                    <button id="logoutButton" class="ghost small" type="button" hidden>退出登录</button>
+                </div>
+            </header>
+
+            <main class="layout">
             <form id="configForm" class="panel form-panel" autocomplete="off">
                 <section class="section-card">
                     <div class="section-heading">
@@ -326,14 +342,15 @@
                     <p id="copyStatus" class="copy-status" aria-live="polite"></p>
                 </div>
             </aside>
-        </main>
+            </main>
 
-        <footer class="footer">
-            <p>
-                本地模式可复制 <code>JSBOT_CONFIG_JSON_BASE64</code> 到 Zeabur；在线模式可直接保存到服务器。不要把真实
-                <code>config.json</code>、Token 或 Key 提交到 GitHub。在线页面会使用 <code>JSBOT_WEB_PASSWORD</code>，未设置时容器会自动生成并写入日志。
-            </p>
-        </footer>
+            <footer class="footer">
+                <p>
+                    本地模式可复制 <code>JSBOT_CONFIG_JSON_BASE64</code> 到 Zeabur；在线模式可直接保存到服务器。不要把真实
+                    <code>config.json</code>、Token 或 Key 提交到 GitHub。在线页面会使用 <code>JSBOT_WEB_PASSWORD</code>，未设置时容器会自动生成并写入日志。
+                </p>
+            </footer>
+        </div>
 
         <script src="./app.js"></script>
     </body>

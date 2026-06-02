@@ -33,6 +33,10 @@ body {
     color: var(--text);
 }
 
+[hidden] {
+    display: none !important;
+}
+
 code {
     border-radius: 0.45rem;
     background: #eef2f7;
@@ -49,6 +53,38 @@ code {
     max-width: 1440px;
     margin: 0 auto;
     padding: 4rem 2rem 2rem;
+}
+
+.login-view {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 2rem;
+}
+
+.login-card {
+    display: grid;
+    gap: 1.1rem;
+    width: min(100%, 30rem);
+    border: 1px solid rgba(219, 228, 240, 0.95);
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: var(--shadow);
+    padding: clamp(1.5rem, 5vw, 2.4rem);
+}
+
+.login-card h1 {
+    font-size: clamp(2rem, 6vw, 3.3rem);
+}
+
+.login-copy {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.75;
+}
+
+.login-card button {
+    width: 100%;
 }
 
 .eyebrow {
@@ -93,6 +129,11 @@ h2 {
     background: rgba(255, 255, 255, 0.78);
     box-shadow: var(--shadow);
     padding: 1.4rem;
+}
+
+.hero-card button {
+    justify-self: start;
+    margin-top: 0.4rem;
 }
 
 .hero-card strong {

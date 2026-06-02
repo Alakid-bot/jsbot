@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { createServer } from 'http';
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
@@ -17,6 +17,8 @@ const port = Number(process.env.PORT || process.env.JSBOT_WEB_PORT || 8080);
 const host = process.env.JSBOT_WEB_HOST || '0.0.0.0';
 const adminPassword = process.env.JSBOT_WEB_PASSWORD || process.env.JSBOT_WEB_TOKEN || '';
 const maxBodyBytes = 1024 * 1024;
+const sessionCookieName = 'jsbot_web_session';
+const sessionTtlMs = 24 * 60 * 60 * 1000;
 
 let botProcess = null;
 let botStarting = false;
@@ -24,6 +26,7 @@ let botStopping = false;
 let restartTimer = null;
 let lastBotStartAt = null;
 let lastBotExit = null;
+const sessions = new Map();
 
 const mimeTypes = {
     '.html': 'text/html; charset=utf-8',
@@ -44,6 +47,89 @@ function safeEqual(a, b) {
     return timingSafeEqual(left, right);
 }
 
+function verifyPassword(password) {
+    return Boolean(adminPassword) && typeof password === 'string' && safeEqual(password, adminPassword);
+}
+
+function parseCookies(req) {
+    const cookies = new Map();
+    const header = req.headers.cookie || '';
+
+    for (const part of header.split(';')) {
+        const separatorIndex = part.indexOf('=');
+        if (separatorIndex === -1) {
+            continue;
+        }
+        const key = part.slice(0, separatorIndex).trim();
+        const value = part.slice(separatorIndex + 1).trim();
+        if (key) {
+            cookies.set(key, decodeURIComponent(value));
+        }
+    }
+
+    return cookies;
+}
+
+function isSecureRequest(req) {
+    return req.headers['x-forwarded-proto'] === 'https' || req.socket.encrypted === true;
+}
+
+function sessionCookie(value, req, maxAgeSeconds) {
+    const parts = [
+        `${sessionCookieName}=${encodeURIComponent(value)}`,
+        'Path=/',
+        'HttpOnly',
+        'SameSite=Strict',
+        `Max-Age=${maxAgeSeconds}`,
+    ];
+
+    if (isSecureRequest(req)) {
+        parts.push('Secure');
+    }
+
+    return parts.join('; ');
+}
+
+function pruneSessions() {
+    const now = Date.now();
+    for (const [token, expiresAt] of sessions) {
+        if (expiresAt <= now) {
+            sessions.delete(token);
+        }
+    }
+}
+
+function createSession(req, res) {
+    pruneSessions();
+    const token = randomBytes(32).toString('base64url');
+    sessions.set(token, Date.now() + sessionTtlMs);
+    res.setHeader('set-cookie', sessionCookie(token, req, Math.floor(sessionTtlMs / 1000)));
+}
+
+function clearSession(req, res) {
+    const token = parseCookies(req).get(sessionCookieName);
+    if (token) {
+        sessions.delete(token);
+    }
+    res.setHeader('set-cookie', sessionCookie('', req, 0));
+}
+
+function isSessionAuthenticated(req) {
+    pruneSessions();
+    const token = parseCookies(req).get(sessionCookieName);
+    if (!token) {
+        return false;
+    }
+
+    const expiresAt = sessions.get(token);
+    if (!expiresAt || expiresAt <= Date.now()) {
+        sessions.delete(token);
+        return false;
+    }
+
+    return true;
+}
+
 function sendJson(res, statusCode, payload) {
     res.writeHead(statusCode, {
         'content-type': 'application/json; charset=utf-8',
@@ -60,34 +146,7 @@ function sendText(res, statusCode, text) {
     res.end(text);
 }
 
-function isAuthenticated(req) {
-    if (!adminPassword) {
-        return false;
-    }
-
-    const header = req.headers.authorization || '';
-    if (!header.startsWith('Basic ')) {
-        return false;
-    }
-
-    let decoded = '';
-    try {
-        decoded = Buffer.from(header.slice('Basic '.length), 'base64').toString('utf8');
-    } catch (_error) {
-        return false;
-    }
-
-    const separatorIndex = decoded.indexOf(':');
-    if (separatorIndex === -1) {
-        return false;
-    }
-
-    const providedPassword = decoded.slice(separatorIndex + 1);
-
-    return safeEqual(providedPassword, adminPassword);
-}
-
-function requireAuth(req, res) {
+function requireSession(req, res) {
     if (!adminPassword) {
         sendText(
             res,
@@ -97,16 +156,11 @@ function requireAuth(req, res) {
         return false;
     }
 
-    if (isAuthenticated(req)) {
+    if (isSessionAuthenticated(req)) {
         return true;
     }
 
-    res.writeHead(401, {
-        'www-authenticate': 'Basic realm="JSBot Config", charset="UTF-8"',
-        'content-type': 'text/plain; charset=utf-8',
-        'cache-control': 'no-store',
-    });
-    res.end('Authentication required.\n');
+    sendJson(res, 401, { error: 'Authentication required' });
     return false;
 }
 
@@ -313,11 +367,41 @@ async function getStatus() {
 }
 
 async function handleApi(req, res, pathname) {
-    if (!requireAuth(req, res)) {
+    if (req.method === 'GET' && pathname === '/api/session') {
+        sendJson(res, 200, {
+            authenticated: isSessionAuthenticated(req),
+            authConfigured: Boolean(adminPassword),
+        });
+        return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/login') {
+        if (!adminPassword) {
+            sendJson(res, 503, { error: 'JSBOT_WEB_PASSWORD is not set' });
+            return;
+        }
+        const body = await readRequestBody(req);
+        const payload = JSON.parse(body || '{}');
+        if (!verifyPassword(payload.password || '')) {
+            sendJson(res, 401, { error: '密码不正确' });
+            return;
+        }
+        createSession(req, res);
+        sendJson(res, 200, { ok: true });
+        return;
+    }
+
+    if (!requireSession(req, res)) {
         return;
     }
 
     if (!requireMutationHeader(req, res)) {
+        return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/logout') {
+        clearSession(req, res);
+        sendJson(res, 200, { ok: true });
         return;
     }
 
@@ -356,10 +440,6 @@ async function handleApi(req, res, pathname) {
 }
 
 async function serveStatic(req, res, pathname) {
-    if (!requireAuth(req, res)) {
-        return;
-    }
-
     if (req.method !== 'GET' && req.method !== 'HEAD') {
         sendText(res, 405, 'Method not allowed\n');
         return;

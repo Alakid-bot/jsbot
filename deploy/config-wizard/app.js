@@ -4,6 +4,7 @@
     const $ = (id) => document.getElementById(id);
     const discordIdPattern = /^\d{17,20}$/;
     const isOnlineMode = ['http:', 'https:'].includes(window.location.protocol);
+    let statusTimer = null;
 
     const fieldIds = [
         'token',
@@ -730,9 +731,28 @@
         status.classList.toggle('error', isError);
     }
 
+    function showLogin(message = '') {
+        $('loginView').hidden = false;
+        $('consoleView').hidden = true;
+        $('loginStatus').textContent = message;
+        $('loginStatus').classList.toggle('error', Boolean(message));
+        if (statusTimer) {
+            window.clearInterval(statusTimer);
+            statusTimer = null;
+        }
+        window.setTimeout(() => $('loginPassword')?.focus(), 0);
+    }
+
+    function showConsole() {
+        $('loginView').hidden = true;
+        $('consoleView').hidden = false;
+        $('loginStatus').textContent = '';
+    }
+
     async function apiRequest(path, options = {}) {
         const response = await fetch(path, {
             ...options,
+            credentials: 'same-origin',
             headers: {
                 ...(options.body ? { 'content-type': 'application/json' } : {}),
                 ...(['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(options.method || 'GET').toUpperCase())
@@ -754,6 +774,9 @@
         }
 
         if (!response.ok) {
+            if (response.status === 401 && isOnlineMode) {
+                showLogin('登录已过期，请重新输入密码。');
+            }
             throw new Error(payload?.error || payload?.message || `HTTP ${response.status}`);
         }
 
@@ -794,6 +817,66 @@
             showServerStatus(status.bot?.running ? 'Bot 正在运行' : 'Bot 未运行或等待配置');
         } catch (error) {
             showServerStatus(`读取状态失败：${error.message}`, true);
+        }
+    }
+
+    async function checkSession() {
+        try {
+            const payload = await apiRequest('/api/session');
+            if (!payload.authConfigured) {
+                showLogin('JSBOT_WEB_PASSWORD 尚未设置，请先在 Zeabur 环境变量中配置。');
+                return false;
+            }
+            if (!payload.authenticated) {
+                showLogin();
+                return false;
+            }
+            showConsole();
+            return true;
+        } catch (error) {
+            showLogin(`检查登录状态失败：${error.message}`);
+            return false;
+        }
+    }
+
+    async function login(password) {
+        const button = $('loginButton');
+        button.disabled = true;
+        $('loginStatus').textContent = '正在验证密码...';
+        $('loginStatus').classList.remove('error');
+
+        try {
+            await apiRequest('/api/login', {
+                method: 'POST',
+                body: JSON.stringify({ password }),
+            });
+            $('loginPassword').value = '';
+            showConsole();
+            await startOnlineConsole();
+        } catch (error) {
+            $('loginStatus').textContent = `登录失败：${error.message}`;
+            $('loginStatus').classList.add('error');
+            $('loginPassword').focus();
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    async function logout() {
+        try {
+            await apiRequest('/api/logout', { method: 'POST' });
+        } catch (_error) {
+            // 即使服务端会话已过期，也直接回到登录页。
+        }
+        showLogin();
+    }
+
+    async function startOnlineConsole() {
+        $('onlineActions').hidden = false;
+        await refreshServerStatus();
+        await loadServerConfig();
+        if (!statusTimer) {
+            statusTimer = window.setInterval(refreshServerStatus, 10000);
         }
     }
 
@@ -988,6 +1071,20 @@
     }
 
     function wireEvents() {
+        $('loginForm').addEventListener('submit', (event) => {
+            event.preventDefault();
+            const password = $('loginPassword').value;
+            if (!password) {
+                $('loginStatus').textContent = '请输入密码。';
+                $('loginStatus').classList.add('error');
+                $('loginPassword').focus();
+                return;
+            }
+            login(password);
+        });
+
+        $('logoutButton').addEventListener('click', logout);
+
         document.addEventListener('input', (event) => {
             if (event.target.closest('#configForm')) {
                 renderOutput();
@@ -1045,7 +1142,7 @@
         $('importFile').addEventListener('change', (event) => importConfig(event.target.files[0]));
 
         if (isOnlineMode) {
-            $('onlineActions').hidden = false;
+            $('logoutButton').hidden = false;
             $('saveServerConfig').addEventListener('click', saveServerConfig);
             $('loadServerConfig').addEventListener('click', loadServerConfig);
             $('restartBot').addEventListener('click', restartBot);
@@ -1060,7 +1157,24 @@
         }
 
         $('modeTitle').textContent = 'Zeabur 在线配置';
-        $('modeDescription').textContent = '此页面受 JSBOT_WEB_PASSWORD 保护，可保存配置到服务器并自动启动/重启 Bot。';
+        $('modeDescription').textContent = '打开页面先输入 JSBOT_WEB_PASSWORD，登录后可保存配置到服务器并自动启动/重启 Bot。';
+    }
+
+    async function bootstrap() {
+        ensureEndpointRow();
+        setupMode();
+        wireEvents();
+        renderOutput();
+
+        if (!isOnlineMode) {
+            showConsole();
+            return;
+        }
+
+        const authenticated = await checkSession();
+        if (authenticated) {
+            await startOnlineConsole();
+        }
     }
 
     window.JSBotConfigWizard = {
@@ -1072,13 +1186,5 @@
         validateForSave,
     };
 
-    ensureEndpointRow();
-    setupMode();
-    wireEvents();
-    renderOutput();
-    refreshServerStatus();
-    if (isOnlineMode) {
-        loadServerConfig();
-        window.setInterval(refreshServerStatus, 10000);
-    }
+    bootstrap();
 })();

@@ -43,7 +43,7 @@ JSBOT_CONFIG_PATH=/app/data/config.json
 NODE_ENV=production
 ```
 
-一键部署模板会生成随机密码并写入 `JSBOT_WEB_PASSWORD`。配置页只校验密码，不校验用户名；如果浏览器 Basic Auth 登录框显示用户名，留空或填写任意内容都可以。如果不设置 `JSBOT_WEB_PASSWORD`，容器会自动生成 16 位 fallback 密码，保存到 `JSBOT_WEB_PASSWORD_FILE`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后打开 Zeabur 域名，登录后可直接修改 AI 答疑、投票系统、运行监控等配置并保存重启 Bot。如果使用仓库根目录的 `zeabur-template.yaml`，PostgreSQL 会自动创建，通常不需要额外填写 `JSBOT_PG_CONFIG_JSON_BASE64`。
+一键部署模板会生成随机密码并写入固定的 `JSBOT_WEB_PASSWORD`，并在 Zeabur 的 `Web configuration password` 部署说明中显示，方便复制。配置页打开后先显示独立登录页，只有一个密码输入框；输入正确密码后进入配置控制台。如果不设置 `JSBOT_WEB_PASSWORD`，容器会自动生成 16 位 fallback 密码，保存到 `JSBOT_WEB_PASSWORD_FILE`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后打开 Zeabur 域名，登录后可直接修改 AI 答疑、投票系统、运行监控等配置并保存重启 Bot。如果使用仓库根目录的 `zeabur-template.yaml`，PostgreSQL 会自动创建，通常不需要额外填写 `JSBOT_PG_CONFIG_JSON_BASE64`。
 
 ## 安全说明
 
