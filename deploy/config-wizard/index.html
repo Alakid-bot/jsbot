@@ -32,7 +32,7 @@
                 </div>
                 <div class="hero-card">
                     <strong id="modeTitle">本地处理</strong>
-                    <span id="modeDescription">本页面可本地生成配置；部署到 Zeabur 后会通过密码保护并保存到服务器持久化目录。</span>
+                    <span id="modeDescription">本页面可本地生成配置；部署到 Zeabur 后会通过密码保护并保存到 PostgreSQL。</span>
                     <button id="logoutButton" class="ghost small" type="button" hidden>退出登录</button>
                 </div>
             </header>
@@ -200,12 +200,12 @@
                         <strong>OpenAI 兼容接口填写示例</strong>
                         <code>https://api.openai.com/v1/chat/completions</code>
                         <code>https://api.deepseek.com/chat/completions</code>
-                        <small>也可以只填 <code>https://api.openai.com/v1</code> 或服务商根地址；保存时会自动补齐 <code>/chat/completions</code>。普通文本模型选“纯文本兼容”，视觉模型可选“多模态/图片”。SK/API Key 会写入服务器 <code>config.json</code>，不要提交到 GitHub。</small>
+                        <small>也可以只填 <code>https://api.openai.com/v1</code> 或服务商根地址；保存时会自动补齐 <code>/chat/completions</code>。普通文本模型选“纯文本兼容”，视觉模型可选“多模态/图片”。SK/API Key 会写入 PostgreSQL 主配置，服务器会生成 <code>config.json</code> 运行副本，不要提交到 GitHub。</small>
                     </div>
 
                     <div class="warning-banner">
                         <strong>安全提醒</strong>
-                        <span>SK / API Key 会<strong>持久化</strong>保存到服务器的 <code>/app/data/config.json</code>，不要提交到 GitHub。在线页面受 <code>JSBOT_WEB_PASSWORD</code> 保护。</span>
+                        <span>SK / API Key 会<strong>持久化</strong>保存到 PostgreSQL 的主配置中，<code>/app/data/config.json</code> 只是启动 Bot 时生成的运行副本。不要提交到 GitHub。在线页面受 <code>JSBOT_WEB_PASSWORD</code> 保护。</span>
                     </div>
 
                     <div class="actions-row endpoint-actions">
@@ -346,7 +346,7 @@
                         <span class="step">11</span>
                         <div>
                             <h2>在线保存 / Bot 控制</h2>
-                            <p>在 Zeabur 域名访问时，配置会保存到服务器的持久化 <code>data/config.json</code>。</p>
+                            <p>在 Zeabur 域名访问时，配置会保存到 PostgreSQL；<code>data/config.json</code> 仅作为 Bot 启动运行副本。</p>
                         </div>
                     </div>
                     <div class="actions-row">
@@ -409,7 +409,7 @@
 
             <footer class="footer">
                 <p>
-                    本地模式可复制 <code>JSBOT_CONFIG_JSON_BASE64</code> 到 Zeabur；在线模式可直接保存到服务器。不要把真实
+                    本地模式可复制 <code>JSBOT_CONFIG_JSON_BASE64</code> 到 Zeabur；在线模式可直接保存到 PostgreSQL。不要把真实
                     <code>config.json</code>、Token 或 Key 提交到 GitHub。在线页面会使用 <code>JSBOT_WEB_PASSWORD</code>，未设置时容器会自动生成并写入日志。
                 </p>
             </footer>

@@ -1082,7 +1082,8 @@
             <dl>
                 <div><dt>Bot</dt><dd>${escapeHtml(botState)}</dd></div>
                 <div><dt>配置</dt><dd>${escapeHtml(configState)}</dd></div>
-                <div><dt>配置路径</dt><dd>${escapeHtml(status.config?.path || '-')}</dd></div>
+                <div><dt>配置存储</dt><dd>${escapeHtml(status.config?.source || '-')}</dd></div>
+                <div><dt>运行副本</dt><dd>${escapeHtml(status.config?.path || '-')}</dd></div>
                 <div><dt>更新时间</dt><dd>${escapeHtml(status.config?.updatedAt || '-')}</dd></div>
                 <div><dt>Web 端口</dt><dd>${escapeHtml(String(status.web?.port || '-'))}</dd></div>
                 <div><dt>最后启动</dt><dd>${escapeHtml(status.bot?.lastStartAt || '-')}</dd></div>
