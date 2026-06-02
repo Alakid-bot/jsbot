@@ -1,32 +1,19 @@
-import { EmbedBuilder } from 'discord.js';
-import { MessageStatsModel } from '../../sqlite/models/messageStatsModel.js';
-import { ErrorHandler } from '../../utils/errorHandler.js';
+import { ChannelType, EmbedBuilder } from 'discord.js';
 import { logTime } from '../../utils/logger.js';
 
 const discordIdPattern = /^\d{17,20}$/;
+const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+const messageFetchLimit = 100;
+
+const scannableChannelTypes = new Set([
+    ChannelType.GuildText,
+    ChannelType.GuildAnnouncement,
+    ChannelType.PublicThread,
+    ChannelType.PrivateThread,
+    ChannelType.AnnouncementThread,
+]);
 
 class MessageStatsService {
-    shouldTrackMessage(message, guildConfig) {
-        if (!message.guild || !guildConfig?.messageStats?.enabled) {
-            return false;
-        }
-        if (message.author.bot && !guildConfig.messageStats.trackBots) {
-            return false;
-        }
-        return true;
-    }
-
-    async incrementFromMessage(message, guildConfig) {
-        if (!this.shouldTrackMessage(message, guildConfig)) {
-            return;
-        }
-
-        await ErrorHandler.handleSilent(
-            () => MessageStatsModel.increment(message.guild.id, message.author.id, message.createdTimestamp || Date.now()),
-            '记录用户发言统计',
-        );
-    }
-
     canQuery(requesterId, targetId, statsConfig = {}) {
         const allowlist = Array.isArray(statsConfig.queryAllowUserIds) ? statsConfig.queryAllowUserIds : [];
         const allowSelfQuery = statsConfig.allowSelfQuery !== false;
@@ -41,15 +28,126 @@ class MessageStatsService {
         return targetId;
     }
 
-    async getUserStats(guildId, userId) {
-        const record = await MessageStatsModel.getByUser(guildId, userId);
-        return record || {
-            guildId,
+    async getRecentUserStats(interaction, userId, statsConfig) {
+        const cutoffTimestamp = Date.now() - sevenDaysMs;
+        const channels = await this.getScannableChannels(interaction.guild);
+        const stats = {
+            guildId: interaction.guildId,
             userId,
             messageCount: 0,
             firstMessageAt: null,
             lastMessageAt: null,
+            scannedChannels: 0,
+            skippedChannels: 0,
         };
+
+        for (const channel of channels.values()) {
+            const channelStats = await this.scanChannelMessages(channel, userId, cutoffTimestamp, statsConfig);
+            if (!channelStats) {
+                stats.skippedChannels += 1;
+                continue;
+            }
+
+            stats.scannedChannels += 1;
+            stats.messageCount += channelStats.messageCount;
+            stats.firstMessageAt = this.pickEarlierTimestamp(stats.firstMessageAt, channelStats.firstMessageAt);
+            stats.lastMessageAt = this.pickLaterTimestamp(stats.lastMessageAt, channelStats.lastMessageAt);
+        }
+
+        return stats;
+    }
+
+    async getScannableChannels(guild) {
+        const channels = new Map();
+        const guildChannels = await guild.channels.fetch();
+
+        for (const channel of guildChannels.values()) {
+            if (!channel) continue;
+
+            if (this.canScanMessages(channel)) {
+                channels.set(channel.id, channel);
+            }
+
+            if (channel.threads) {
+                await this.addFetchableThreads(channels, channel);
+            }
+        }
+
+        return channels;
+    }
+
+    canScanMessages(channel) {
+        return scannableChannelTypes.has(channel.type) && channel.messages?.fetch;
+    }
+
+    async addFetchableThreads(channels, channel) {
+        await this.addThreadCollection(channels, () => channel.threads.fetchActive());
+        await this.addThreadCollection(channels, () => channel.threads.fetchArchived({ type: 'public', limit: messageFetchLimit }));
+
+        if (channel.type !== ChannelType.GuildForum && channel.type !== ChannelType.GuildMedia) {
+            await this.addThreadCollection(channels, () => channel.threads.fetchArchived({ type: 'private', limit: messageFetchLimit }));
+        }
+    }
+
+    async addThreadCollection(channels, fetchThreads) {
+        const fetched = await fetchThreads().catch(() => null);
+        const threads = fetched?.threads;
+        if (!threads) return;
+
+        for (const thread of threads.values()) {
+            if (thread && this.canScanMessages(thread)) {
+                channels.set(thread.id, thread);
+            }
+        }
+    }
+
+    async scanChannelMessages(channel, userId, cutoffTimestamp, statsConfig) {
+        let before;
+        const stats = {
+            messageCount: 0,
+            firstMessageAt: null,
+            lastMessageAt: null,
+        };
+
+        while (true) {
+            const options = { limit: messageFetchLimit };
+            if (before) options.before = before;
+
+            const messages = await channel.messages.fetch(options).catch(() => null);
+            if (!messages) return null;
+            if (messages.size === 0) break;
+
+            let reachedCutoff = false;
+            for (const message of messages.values()) {
+                if (message.createdTimestamp < cutoffTimestamp) {
+                    reachedCutoff = true;
+                    continue;
+                }
+                if (message.author?.id !== userId) continue;
+                if (message.author.bot && !statsConfig.trackBots) continue;
+
+                stats.messageCount += 1;
+                stats.firstMessageAt = this.pickEarlierTimestamp(stats.firstMessageAt, message.createdTimestamp);
+                stats.lastMessageAt = this.pickLaterTimestamp(stats.lastMessageAt, message.createdTimestamp);
+            }
+
+            before = messages.last()?.id;
+            if (!before || messages.size < messageFetchLimit || reachedCutoff) break;
+        }
+
+        return stats;
+    }
+
+    pickEarlierTimestamp(current, candidate) {
+        if (!candidate) return current;
+        if (!current) return candidate;
+        return Math.min(current, candidate);
+    }
+
+    pickLaterTimestamp(current, candidate) {
+        if (!candidate) return current;
+        if (!current) return candidate;
+        return Math.max(current, candidate);
     }
 
     buildStatsEmbed(stats, requesterId) {
@@ -62,12 +160,17 @@ class MessageStatsService {
 
         return new EmbedBuilder()
             .setColor(0x5865f2)
-            .setTitle('发言统计')
+            .setTitle('近 7 天发言统计')
             .setDescription(`用户：<@${stats.userId}>\nDCID：\`${stats.userId}\``)
             .addFields(
                 { name: '总发言数', value: String(stats.messageCount || 0), inline: true },
                 { name: '首次记录', value: firstMessage, inline: false },
                 { name: '最近发言', value: lastMessage, inline: false },
+                {
+                    name: '扫描范围',
+                    value: `最近 7 天，可访问频道 ${stats.scannedChannels ?? 0} 个${stats.skippedChannels ? `，跳过 ${stats.skippedChannels} 个` : ''}`,
+                    inline: false,
+                },
             )
             .setFooter({ text: requesterId === stats.userId ? '仅你可见' : '白名单查询，仅你可见' })
             .setTimestamp();
@@ -98,9 +201,10 @@ class MessageStatsService {
             return;
         }
 
-        const stats = await this.getUserStats(interaction.guildId, targetId);
+        await interaction.editReply({ content: '正在扫描最近 7 天内的服务器消息，请稍候...' });
+        const stats = await this.getRecentUserStats(interaction, targetId, statsConfig);
         const embed = this.buildStatsEmbed(stats, requesterId);
-        await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ content: '', embeds: [embed] });
         logTime(`[发言统计] ${interaction.user.tag} 查询了 ${targetId} 的发言统计`);
     }
 }

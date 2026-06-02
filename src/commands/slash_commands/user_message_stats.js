@@ -7,7 +7,7 @@ export default {
     ephemeral: true,
     data: new SlashCommandBuilder()
         .setName('user_message_stats')
-        .setDescription('私密查询发言统计')
+        .setDescription('私密查询近 7 天发言统计')
         .addStringOption(option =>
             option
                 .setName('dcid')
