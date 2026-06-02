@@ -29,7 +29,7 @@ class RuntimeStateService {
             },
             `读取运行时状态-${key}`,
             { throwOnError: true, userFriendly: false },
-        ).then(result => result.data);
+        );
     }
 
     async setState(key, value) {
