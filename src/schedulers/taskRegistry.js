@@ -1,5 +1,4 @@
 import schedule from 'node-schedule';
-import { dbManager } from '../sqlite/dbManager.js';
 import { carouselServiceManager } from '../services/carousel/carouselManager.js';
 import { monitorService } from '../services/system/monitorService.js';
 import { opinionMailboxService } from '../services/user/opinionMailboxService.js';
@@ -39,17 +38,6 @@ export class TaskRegistry {
      * @param {Object} client - Discord客户端
      */
     registerDatabaseTasks(client) {
-        // 数据库备份任务 - 每天早上6点执行
-        this.taskScheduler.addDailyTask({
-            taskId: 'databaseBackup',
-            hour: 6,
-            minute: 0,
-            task: async () => {
-                await dbManager.backup();
-                logTime('[定时任务] 数据库备份完成');
-            }
-        });
-
         // 重新加载所有调度器的定时任务 - 每天凌晨3点执行
         this.taskScheduler.addDailyTask({
             taskId: 'reloadSchedulers',

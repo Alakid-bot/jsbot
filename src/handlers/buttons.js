@@ -19,6 +19,7 @@ import { logTime } from '../utils/logger.js';
 import { checkConfirmationPermission, punishmentConfirmationStore } from '../utils/punishmentConfirmationHelper.js';
 import { followHistoryService } from '../services/user/followHistoryService.js';
 import { collectionService } from '../services/user/collectionService.js';
+import { selfServiceRoleService } from '../services/role/selfServiceRoleService.js';
 
 /**
  * 查找对应的按钮配置
@@ -212,6 +213,10 @@ export const buttonHandlers = {
             '合集分组导航',
             { ephemeral: true }
         );
+    },
+
+    self_role: async interaction => {
+        await selfServiceRoleService.handleButton(interaction);
     },
 
     // 议事区支持按钮处理器
@@ -632,18 +637,19 @@ const BUTTON_CONFIG = {
     apply_volunteer_role: { handler: buttonHandlers.apply_volunteer_role, needDefer: true, cooldown: 60000 },
     exit_volunteer_role: { handler: buttonHandlers.exit_volunteer_role, needDefer: true, cooldown: 60000 },
     sync_roles: { handler: buttonHandlers.sync_roles, needDefer: true, cooldown: 60000 },
+    self_role: { handler: buttonHandlers.self_role, needDefer: true, cooldown: 3000 },
 
     // 议事系统相关
     start_debate: { handler: buttonHandlers.start_debate, needDefer: false, cooldown: 10000 },
-    support_mute: { handler: interaction => CourtService.handleSupport(interaction, 'mute'), needDefer: true, cooldown: 10000 },
-    support_ban: { handler: interaction => CourtService.handleSupport(interaction, 'ban'), needDefer: true, cooldown: 10000 },
-    support_debate: { handler: interaction => CourtService.handleSupport(interaction, 'debate'), needDefer: true, cooldown: 10000 },
+    support_mute: { handler: buttonHandlers.support_mute, needDefer: true, cooldown: 10000 },
+    support_ban: { handler: buttonHandlers.support_ban, needDefer: true, cooldown: 10000 },
+    support_debate: { handler: buttonHandlers.support_debate, needDefer: true, cooldown: 10000 },
     support_impeach: { handler: interaction => CourtService.handleSupport(interaction, 'impeach'), needDefer: true, cooldown: 10000 },
     revoke_process: { handler: buttonHandlers.revoke_process, needDefer: true },
 
     // 投票相关
-    vote_red: { handler: interaction => VoteService.handleVoteButton(interaction, 'red'), needDefer: true, cooldown: 60000 },
-    vote_blue: { handler: interaction => VoteService.handleVoteButton(interaction, 'blue'), needDefer: true, cooldown: 60000 },
+    vote_red: { handler: buttonHandlers.vote_red, needDefer: true, cooldown: 60000 },
+    vote_blue: { handler: buttonHandlers.vote_blue, needDefer: true, cooldown: 60000 },
 
     // 翻页相关
     page_prev: { handler: buttonHandlers.page_prev, needDefer: false },

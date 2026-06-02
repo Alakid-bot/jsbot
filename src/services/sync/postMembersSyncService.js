@@ -269,7 +269,7 @@ class PostMembersSyncService {
                 try {
                     await this._syncThreadMembers(threadId, data.members, data.client);
                     
-                    // 同步成功后，更新 sqlite 状态
+                    // 同步成功后，更新PostgreSQL运行时状态
                     await PgSyncStateModel.updateThreadState(threadId, {
                         success: true,
                         error: null
@@ -403,4 +403,3 @@ export const postMembersSyncService = new PostMembersSyncService({
     cacheTimeout: 2 * 60 * 60 * 1000  // 2小时缓存，配合threadAnalyzer的2小时扫描周期
 });
 export default postMembersSyncService;
-

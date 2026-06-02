@@ -73,11 +73,25 @@ export class GuildManager {
                     voteDuration: 86400000, // 默认1天后结束
                 },
                 monitor: {
-                    enabled: guildConfig.monitor?.enabled || false,
-                    roleMonitorCategoryId: guildConfig.monitor?.roleMonitorCategoryId || null,
-                    monitorChannelId: guildConfig.monitor?.monitorChannelId || null,
-                    monitoredRoleId: guildConfig.monitor?.monitoredRoleId || null,
-                    roleDisplayName: guildConfig.monitor?.roleDisplayName || '角色',
+                    enabled: guildConfig.monitor?.enabled ?? false,
+                    roleMonitorCategoryId: guildConfig.monitor?.roleMonitorCategoryId ?? null,
+                    monitorChannelId: guildConfig.monitor?.monitorChannelId ?? null,
+                    monitoredRoleId: guildConfig.monitor?.monitoredRoleId ?? null,
+                    roleDisplayName: guildConfig.monitor?.roleDisplayName ?? '角色',
+                },
+                selfServiceRoles: {
+                    enabled: guildConfig.selfServiceRoles?.enabled ?? false,
+                    groups: Array.isArray(guildConfig.selfServiceRoles?.groups)
+                        ? guildConfig.selfServiceRoles.groups
+                        : [],
+                },
+                messageStats: {
+                    enabled: guildConfig.messageStats?.enabled ?? false,
+                    queryAllowUserIds: Array.isArray(guildConfig.messageStats?.queryAllowUserIds)
+                        ? guildConfig.messageStats.queryAllowUserIds
+                        : [],
+                    allowSelfQuery: guildConfig.messageStats?.allowSelfQuery ?? true,
+                    trackBots: guildConfig.messageStats?.trackBots ?? false,
                 },
                 autoDeleteChannels: guildConfig.autoDeleteChannels || [], // string[] - 需要自动删除所有消息的频道ID数组
             };

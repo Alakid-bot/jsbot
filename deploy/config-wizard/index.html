@@ -247,6 +247,65 @@
                     <div class="section-heading">
                         <span class="step">7</span>
                         <div>
+                            <h2>自助身份组</h2>
+                            <p class="section-tip">配置 Bot 后续发送的身份组领取按钮。用户可点击按钮领取或取消身份组。</p>
+                        </div>
+                    </div>
+
+                    <label class="switch-field inline">
+                        <input id="selfServiceRolesEnabled" type="checkbox" />
+                        <span><strong>启用自助身份组</strong><small>开启后至少添加一个分组卡片，并填写 ID、标签与身份组 ID。</small></span>
+                    </label>
+
+                    <div id="selfServiceRolesGroups" class="group-list"></div>
+
+                    <div class="hint-card">
+                        <strong>分组字段说明</strong>
+                        <small>ID 用于按钮标识，标签展示给用户，角色 ID 为 Discord 身份组 ID，Emoji 可选。模式建议使用 toggle（领取/取消），也可选择 grant（只领取）或 remove（只移除）。角色 ID 必须是 17–20 位数字。</small>
+                    </div>
+
+                    <div class="actions-row group-actions">
+                        <button id="addSelfServiceRoleGroup" class="secondary" type="button">+ 添加分组</button>
+                    </div>
+                </section>
+
+                <section class="section-card">
+                    <div class="section-heading">
+                        <span class="step">8</span>
+                        <div>
+                            <h2>消息统计查询</h2>
+                            <p class="section-tip">控制谁可以查询服务器消息统计数据。普通用户可私密查询自己，白名单用户可查询任意 DCID。</p>
+                        </div>
+                    </div>
+
+                    <label class="switch-field inline">
+                        <input id="messageStatsEnabled" type="checkbox" />
+                        <span><strong>启用消息统计</strong><small>开启后可配置查询权限白名单与自助查询开关。</small></span>
+                    </label>
+
+                    <div class="grid two">
+                        <label class="field">
+                            <span>查询白名单用户 ID</span>
+                            <textarea id="messageStatsQueryAllowUserIds" rows="3" placeholder="每行一个 Discord 用户 ID"></textarea>
+                            <small>每行一个 DCID。填写后，列表中的用户可查询任何人的统计数据；普通用户仍只能查询自己。</small>
+                        </label>
+                        <div class="grid" style="gap:0.75rem">
+                            <label class="switch-field">
+                                <input id="messageStatsAllowSelfQuery" type="checkbox" checked />
+                                <span><strong>允许自助查询</strong><small>普通用户可查询自己的统计数据。</small></span>
+                            </label>
+                            <label class="switch-field">
+                                <input id="messageStatsTrackBots" type="checkbox" />
+                                <span><strong>统计 Bot 消息</strong><small>是否将 Bot 账号计入消息统计。</small></span>
+                            </label>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-card">
+                    <div class="section-heading">
+                        <span class="step">9</span>
+                        <div>
                             <h2>运行监控</h2>
                             <p class="section-tip">用于展示 Bot 在线状态、Ping、运行时间和被监控角色人数。监控频道可留空，Bot 命令也可后续创建/更新。</p>
                         </div>
@@ -267,7 +326,7 @@
 
                 <section class="section-card actions-card">
                     <div class="section-heading compact">
-                        <span class="step">8</span>
+                        <span class="step">10</span>
                         <div>
                             <h2>导入 / 重置</h2>
                             <p>可以导入已有 <code>config.json</code> 继续编辑。</p>
@@ -284,7 +343,7 @@
 
                 <section id="onlineActions" class="section-card actions-card" hidden>
                     <div class="section-heading compact">
-                        <span class="step">9</span>
+                        <span class="step">11</span>
                         <div>
                             <h2>在线保存 / Bot 控制</h2>
                             <p>在 Zeabur 域名访问时，配置会保存到服务器的持久化 <code>data/config.json</code>。</p>

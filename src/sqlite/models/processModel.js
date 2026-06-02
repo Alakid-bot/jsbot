@@ -42,6 +42,11 @@ class ProcessModel extends BaseModel {
         }
 
         try {
+            const details = this.tryParseJSON(process.details, '{}', 'updateStatus.details');
+            if (options.debateThreadId) {
+                details.debateThreadId = options.debateThreadId;
+            }
+
             await dbManager.safeExecute(
                 'run',
                 `UPDATE processes
@@ -49,15 +54,7 @@ class ProcessModel extends BaseModel {
                     result = CASE WHEN ? IS NOT NULL THEN ? ELSE result END,
                     reason = CASE WHEN ? IS NOT NULL THEN ? ELSE reason END,
                     messageId = CASE WHEN ? IS NOT NULL THEN ? ELSE messageId END,
-                    details = CASE
-                        WHEN ? IS NOT NULL THEN
-                            json_set(
-                                COALESCE(details, '{}'),
-                                '$.debateThreadId',
-                                ?
-                            )
-                        ELSE details
-                    END,
+                    details = ?,
                     updatedAt = ?
                 WHERE id = ?`,
                 [
@@ -68,8 +65,7 @@ class ProcessModel extends BaseModel {
                     options.reason,
                     options.messageId,
                     options.messageId,
-                    options.debateThreadId,
-                    options.debateThreadId,
+                    JSON.stringify(details),
                     Date.now(),
                     id,
                 ],

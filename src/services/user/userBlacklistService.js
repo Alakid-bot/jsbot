@@ -1,9 +1,6 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'path';
 import { ErrorHandler } from '../../utils/errorHandler.js';
 import { logTime } from '../../utils/logger.js';
-
-const blacklistPath = join(process.cwd(), 'data', 'user_blacklist.json');
+import { runtimeStateService } from '../storage/runtimeStateService.js';
 
 /**
  * 用户拉黑服务类
@@ -22,38 +19,34 @@ export class UserBlacklistService {
     };
 
     /**
-     * 从文件读取拉黑数据
+     * 从PostgreSQL读取拉黑数据
      * @private
      * @returns {Object} 拉黑数据对象
      */
-    static readBlacklistFile() {
-        return ErrorHandler.handleSilentSync(
-            () => JSON.parse(readFileSync(blacklistPath, 'utf8')),
+    static async readBlacklistState() {
+        return ErrorHandler.handleSilent(
+            () => runtimeStateService.getState('userBlacklist', { blacklists: {} }),
             "读取帖子拉黑配置",
             { blacklists: {} }
         );
     }
 
     /**
-     * 写入拉黑数据到文件
+     * 写入拉黑数据到PostgreSQL
      * @private
      * @param {Object} data - 拉黑数据对象
      */
-    static saveBlacklistFile(data) {
-        return ErrorHandler.handleServiceSync(
-            () => writeFileSync(blacklistPath, JSON.stringify(data, null, 4), 'utf8'),
-            "保存帖子拉黑配置",
-            { throwOnError: true }
-        );
+    static async saveBlacklistState(data) {
+        await runtimeStateService.setState('userBlacklist', data);
     }
 
     /**
      * 加载拉黑数据到内存
      * 在bot启动时调用
      */
-    static loadBlacklistData() {
+    static async loadBlacklistData() {
         try {
-            const data = UserBlacklistService.readBlacklistFile();
+            const data = await UserBlacklistService.readBlacklistState();
             UserBlacklistService.cache.blacklists = data.blacklists || {};
 
             // 统计数据
@@ -80,8 +73,11 @@ export class UserBlacklistService {
         const data = {
             blacklists: UserBlacklistService.cache.blacklists
         };
-        UserBlacklistService.saveBlacklistFile(data);
         UserBlacklistService.cache.dirty = false;
+        UserBlacklistService.saveBlacklistState(data).catch(error => {
+            UserBlacklistService.cache.dirty = true;
+            logTime(`[帖子拉黑] PostgreSQL保存失败: ${error.message}`, true);
+        });
     }
 
     /**
@@ -119,6 +115,19 @@ export class UserBlacklistService {
             UserBlacklistService.saveToFile();
             logTime('[帖子拉黑] 强制保存已执行');
         }
+    }
+
+    static async forceSaveAsync() {
+        if (UserBlacklistService.cache.saveTimer) {
+            clearTimeout(UserBlacklistService.cache.saveTimer);
+            UserBlacklistService.cache.saveTimer = null;
+        }
+        const data = {
+            blacklists: UserBlacklistService.cache.blacklists
+        };
+        await UserBlacklistService.saveBlacklistState(data);
+        UserBlacklistService.cache.dirty = false;
+        logTime('[帖子拉黑] 强制保存已执行');
     }
 
     /**
@@ -275,4 +284,3 @@ export class UserBlacklistService {
         }
     }
 }
-

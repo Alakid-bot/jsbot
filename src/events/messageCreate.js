@@ -1,6 +1,7 @@
 import { ChannelType, Events } from 'discord.js';
 import { EmbedFactory } from '../factories/embedFactory.js';
 import { UserBlacklistService } from '../services/user/userBlacklistService.js';
+import { messageStatsService } from '../services/user/messageStatsService.js';
 import { ErrorHandler } from '../utils/errorHandler.js';
 import { logTime } from '../utils/logger.js';
 
@@ -12,11 +13,13 @@ import { logTime } from '../utils/logger.js';
 export default {
     name: Events.MessageCreate,
     async execute(message) {
+        const guildConfig = message.client.guildManager?.getGuildConfig(message.guild?.id);
+        await messageStatsService.incrementFromMessage(message, guildConfig);
+
         // 忽略机器人消息
         if (message.author.bot) return;
 
         // 检查是否在需要自动删除消息的频道中
-        const guildConfig = message.client.guildManager?.getGuildConfig(message.guild?.id);
         const autoDeleteChannels = guildConfig?.autoDeleteChannels || [];
         if (autoDeleteChannels.includes(message.channel.id)) {
             // 检查发送者是否有管理权限（管理员或版主）
@@ -143,4 +146,3 @@ export default {
         );
     },
 };
-

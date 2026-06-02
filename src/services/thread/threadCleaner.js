@@ -1,33 +1,10 @@
-import { promises as fs } from 'fs';
-import path from 'path';
 import { EmbedFactory } from '../../factories/embedFactory.js';
 import { delay, globalBatchProcessor, globalRequestQueue } from '../../utils/concurrency.js';
 import { logTime } from '../../utils/logger.js';
 import pgSyncScheduler from '../../schedulers/pgSyncScheduler.js';
+import { runtimeStateService } from '../storage/runtimeStateService.js';
 
 const noop = () => undefined;
-
-// 缓存目录路径
-const CACHE_DIR = path.join(process.cwd(), 'data', 'thread_cache');
-
-/**
- * 确保缓存目录存在
- */
-async function ensureCacheDirectory() {
-    try {
-        await fs.mkdir(CACHE_DIR, { recursive: true });
-    } catch (error) {
-        logTime(`创建缓存目录失败: ${error.message}`, true);
-    }
-}
-
-/**
- * 获取子区缓存文件路径
- * @param {string} threadId - 子区ID
- */
-function getThreadCacheFilePath(threadId) {
-    return path.join(CACHE_DIR, `${threadId}.json`);
-}
 
 /**
  * 保存子区缓存信息
@@ -36,9 +13,7 @@ function getThreadCacheFilePath(threadId) {
  */
 async function saveThreadCache(threadId, data) {
     try {
-        await ensureCacheDirectory();
-        const filePath = getThreadCacheFilePath(threadId);
-        await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
+        await runtimeStateService.setThreadCache(threadId, data);
         // logTime(`[${threadId}] 子区缓存已保存`);
     } catch (error) {
         logTime(`保存子区缓存失败: ${error.message}`, true);
@@ -51,9 +26,7 @@ async function saveThreadCache(threadId, data) {
  */
 async function loadThreadCache(threadId) {
     try {
-        const filePath = getThreadCacheFilePath(threadId);
-        const data = await fs.readFile(filePath, 'utf8');
-        return JSON.parse(data);
+        return await runtimeStateService.getThreadCache(threadId);
     } catch (error) {
         // 如果文件不存在或其他错误，返回null
         return null;
@@ -95,11 +68,7 @@ export async function updateThreadAutoCleanupSetting(threadId, options = {}) {
  */
 export async function getAllCachedThreadIds() {
     try {
-        await ensureCacheDirectory();
-        const files = await fs.readdir(CACHE_DIR);
-        return files
-            .filter(file => file.endsWith('.json'))
-            .map(file => file.replace('.json', ''));
+        return await runtimeStateService.getAllThreadCacheIds();
     } catch (error) {
         logTime(`获取缓存子区列表失败: ${error.message}`, true);
         return [];
@@ -721,4 +690,3 @@ export async function cleanupCachedThreadsSequentially(client, guildId, activeTh
         return cleanupResults;
     }
 }
-

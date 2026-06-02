@@ -321,6 +321,32 @@ textarea:focus {
     gap: 0.2rem;
 }
 
+.group-list {
+    display: grid;
+    gap: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.group-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 1rem;
+    align-items: end;
+    border: 1px solid var(--line);
+    border-radius: 1rem;
+    background: #fbfdff;
+    padding: 1.2rem;
+}
+
+.group-row .remove-group {
+    grid-column: 1 / -1;
+    justify-self: start;
+}
+
+.group-actions {
+    margin: 1rem 0;
+}
+
 .endpoint-list {
     display: grid;
     gap: 1.2rem;

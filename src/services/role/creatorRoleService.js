@@ -1,14 +1,13 @@
 import { ChannelType } from 'discord.js';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'path';
 import { EmbedFactory } from '../../factories/embedFactory.js';
 import { globalRequestQueue } from '../../utils/concurrency.js';
 import { ErrorHandler } from '../../utils/errorHandler.js';
 import { logTime } from '../../utils/logger.js';
 import { manageRolesByGroups, getRoleSyncConfig } from './roleApplication.js';
 import { pgManager } from '../../pg/pgManager.js';
+import { runtimeStateService } from '../storage/runtimeStateService.js';
 
-const optOutFilePath = join(process.cwd(), 'data', 'creatorRoleOptOut.json');
+let optOutCache = new Set();
 
 /**
  * 创作者身份组自动发放限速器
@@ -50,17 +49,7 @@ const rateLimiter = new CreatorRoleRateLimiter();
  * @returns {Set<string>} 用户ID集合
  */
 export const getOptOutList = () => {
-    return ErrorHandler.handleServiceSync(
-        () => {
-            if (!existsSync(optOutFilePath)) {
-                return new Set();
-            }
-            const data = JSON.parse(readFileSync(optOutFilePath, 'utf8'));
-            return new Set(Array.isArray(data.optOutUsers) ? data.optOutUsers : []);
-        },
-        "读取创作者身份组放弃名单",
-        { throwOnError: false }
-    )?.data || new Set();
+    return new Set(optOutCache);
 };
 
 /**
@@ -68,18 +57,24 @@ export const getOptOutList = () => {
  * @param {Set<string>} optOutSet - 用户ID集合
  */
 export const saveOptOutList = (optOutSet) => {
-    return ErrorHandler.handleServiceSync(
-        () => {
-            const data = {
-                optOutUsers: Array.from(optOutSet),
-                lastUpdated: new Date().toISOString()
-            };
-            writeFileSync(optOutFilePath, JSON.stringify(data, null, 2), 'utf8');
-            logTime(`[创作者身份组] 已保存放弃名单，共 ${optOutSet.size} 位用户`);
-        },
-        "保存创作者身份组放弃名单",
-        { throwOnError: true }
+    optOutCache = new Set(optOutSet);
+    const data = {
+        optOutUsers: Array.from(optOutSet),
+        lastUpdated: new Date().toISOString()
+    };
+    runtimeStateService.setCreatorRoleOptOut(data)
+        .then(() => logTime(`[创作者身份组] 已保存放弃名单，共 ${optOutSet.size} 位用户`))
+        .catch(error => logTime(`[创作者身份组] 保存放弃名单失败: ${error.message}`, true));
+};
+
+export const loadOptOutList = async () => {
+    const data = await ErrorHandler.handleSilent(
+        () => runtimeStateService.getCreatorRoleOptOut(),
+        "读取创作者身份组放弃名单",
+        { optOutUsers: [] }
     );
+    optOutCache = new Set(Array.isArray(data.optOutUsers) ? data.optOutUsers : []);
+    logTime(`[创作者身份组] 已加载放弃名单，共 ${optOutCache.size} 位用户`);
 };
 
 /**

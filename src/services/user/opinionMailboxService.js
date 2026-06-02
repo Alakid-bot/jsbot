@@ -1,32 +1,31 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'path';
 import { EmbedFactory } from '../../factories/embedFactory.js';
 import { delay } from '../../utils/concurrency.js';
 import { ErrorHandler } from '../../utils/errorHandler.js';
 import { logTime } from '../../utils/logger.js';
-
-const messageIdsPath = join(process.cwd(), 'data', 'messageIds.json');
-const opinionRecordsPath = join(process.cwd(), 'data', 'opinionRecords.json');
+import { runtimeStateService } from '../storage/runtimeStateService.js';
 
 /**
  * 意见信箱服务类
  */
 class OpinionMailboxService {
     constructor() {
-        this.messageIds = this.loadMessageIds();
+        this.messageIds = {};
+        this.opinionRecords = { validSubmissions: [] };
+    }
+
+    async initialize() {
+        this.messageIds = await this.loadMessageIds();
+        this.opinionRecords = await runtimeStateService.getOpinionRecords();
     }
 
     /**
      * 加载消息ID配置
      * @returns {Object} 消息ID配置对象
      */
-    loadMessageIds() {
-        return ErrorHandler.handleSilentSync(
-            () => {
-                const data = readFileSync(messageIdsPath, 'utf8');
-                return JSON.parse(data);
-            },
+    async loadMessageIds() {
+        return ErrorHandler.handleSilent(
+            () => runtimeStateService.getMessageIds(),
             "加载消息ID配置",
             {}
         );
@@ -37,14 +36,9 @@ class OpinionMailboxService {
      * @param {Object} messageIds - 消息ID配置对象
      */
     saveMessageIds(messageIds) {
-        ErrorHandler.handleServiceSync(
-            () => {
-                writeFileSync(messageIdsPath, JSON.stringify(messageIds, null, 2), 'utf8');
-                this.messageIds = messageIds;
-            },
-            "保存消息ID配置",
-            { throwOnError: true }
-        );
+        this.messageIds = messageIds;
+        runtimeStateService.setMessageIds(messageIds)
+            .catch(error => logTime(`[意见信箱] 保存消息ID失败: ${error.message}`, true));
     }
 
     /**
@@ -247,11 +241,7 @@ class OpinionMailboxService {
      * @returns {Object} 意见记录配置对象
      */
     getOpinionRecords() {
-        return ErrorHandler.handleSilentSync(
-            () => JSON.parse(readFileSync(opinionRecordsPath, 'utf8')),
-            "读取意见记录配置",
-            { validSubmissions: [] }
-        );
+        return this.opinionRecords;
     }
 
     /**
@@ -259,13 +249,9 @@ class OpinionMailboxService {
      * @param {Object} records - 意见记录对象
      */
     saveOpinionRecords(records) {
-        ErrorHandler.handleServiceSync(
-            () => {
-                writeFileSync(opinionRecordsPath, JSON.stringify(records, null, 4), 'utf8');
-            },
-            "保存意见记录配置",
-            { throwOnError: true }
-        );
+        this.opinionRecords = records;
+        runtimeStateService.setOpinionRecords(records)
+            .catch(error => logTime(`[意见记录] 保存失败: ${error.message}`, true));
     }
 
     /**
@@ -285,7 +271,7 @@ class OpinionMailboxService {
                 }
 
                 // 读取现有记录
-                const records = await this.getOpinionRecords();
+                const records = this.getOpinionRecords();
 
                 // 检查用户是否已有记录
                 const existingUserRecord = records.validSubmissions.find(record => record.userId === userId);

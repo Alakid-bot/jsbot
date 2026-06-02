@@ -1,7 +1,6 @@
 import { exec } from 'child_process';
 import { ChannelType, PermissionFlagsBits } from 'discord.js';
 import { readFile, writeFile } from 'fs/promises';
-import { join } from 'path';
 import { promisify } from 'util';
 import { EmbedFactory } from '../../factories/embedFactory.js';
 import { globalRequestQueue } from '../../utils/concurrency.js';
@@ -9,10 +8,9 @@ import { getConfigPath } from '../../utils/configPaths.js';
 import { ErrorHandler } from '../../utils/errorHandler.js';
 import { logTime } from '../../utils/logger.js';
 import { pgSyncScheduler } from '../../schedulers/pgSyncScheduler.js';
+import { runtimeStateService } from '../storage/runtimeStateService.js';
 
 const execAsync = promisify(exec);
-
-const MESSAGE_IDS_PATH = join(process.cwd(), 'data', 'messageIds.json');
 
 // 获取WebSocket状态描述
 const getConnectionStatus = client => {
@@ -109,8 +107,7 @@ class MonitorService {
     async loadMessageIds() {
         return await ErrorHandler.handleSilent(
             async () => {
-                const data = await readFile(MESSAGE_IDS_PATH, 'utf8');
-                return JSON.parse(data);
+                return await runtimeStateService.getMessageIds();
             },
             "加载消息ID配置",
             {}
@@ -124,7 +121,7 @@ class MonitorService {
     async saveMessageIds(messageIds) {
         await ErrorHandler.handleService(
             async () => {
-                await writeFile(MESSAGE_IDS_PATH, JSON.stringify(messageIds, null, 4), 'utf8');
+                await runtimeStateService.setMessageIds(messageIds);
             },
             "保存消息ID配置",
             { throwOnError: true }
@@ -141,13 +138,13 @@ class MonitorService {
             async () => {
                 const messageIds = await this.loadMessageIds();
 
-                // 从messageIds.json获取数据
+                // 从PostgreSQL运行时状态获取数据
                 const monitorData = messageIds[guildId]?.monitor;
                 if (!monitorData) {
                     return { channelId: null, messageId: null };
                 }
 
-                // messageIds.json中的结构是 { channelId: messageId }
+                // messageIds状态结构是 { channelId: messageId }
                 const channelId = Object.keys(monitorData)[0];
                 const messageId = channelId ? monitorData[channelId] : null;
 
@@ -159,7 +156,7 @@ class MonitorService {
     }
 
     /**
-     * 更新messageIds.json中的监控消息ID
+     * 更新PostgreSQL运行时状态中的监控消息ID
      * @param {string} guildId 服务器ID
      * @param {string} channelId 频道ID
      * @param {string} messageId 消息ID
@@ -181,7 +178,7 @@ class MonitorService {
                 // 更新messageId
                 messageIds[guildId].monitor[channelId] = messageId;
 
-                // 保存文件
+                // 保存到PostgreSQL运行时状态
                 await this.saveMessageIds(messageIds);
                 logTime(`[监控服务] 已更新服务器 ${guildId} 的监控消息ID: ${messageId}`);
             },
@@ -240,7 +237,7 @@ class MonitorService {
     async updateStatusMessage(client, guildId) {
         await ErrorHandler.handleSilent(
             async () => {
-                // 从messageIds.json获取channelId和messageId
+                // 从PostgreSQL运行时状态获取channelId和messageId
                 const { channelId, messageId } = await this.getMonitorIds(guildId);
 
                 if (!channelId) {

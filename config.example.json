@@ -67,6 +67,27 @@
                 "monitoredRoleId": "string | null",
                 "roleDisplayName": "string (default: '角色')"
             },
+            "selfServiceRoles": {
+                "enabled": "boolean",
+                "groups": [
+                    {
+                        "id": "string (group identifier for button customId)",
+                        "label": "string (display name for users)",
+                        "description": "string | null",
+                        "emoji": "string | null",
+                        "roleId": "string (Discord role ID)",
+                        "mode": "string (toggle | grant | remove, default: toggle)"
+                    }
+                ]
+            },
+            "messageStats": {
+                "enabled": "boolean",
+                "queryAllowUserIds": [
+                    "string (Discord user IDs allowed to query anyone's stats)"
+                ],
+                "allowSelfQuery": "boolean (default: true)",
+                "trackBots": "boolean (default: false)"
+            },
             "autoDeleteChannels": [
                 "string (Discord channel IDs where all messages should be auto-deleted)"
             ]

@@ -1,10 +1,7 @@
-import { promises as fs } from 'fs';
-import { join } from 'path';
 import { ErrorHandler } from '../../utils/errorHandler.js';
 import { getOrCreateMessage } from '../thread/threadAnalyzer.js';
 import { BaseCarouselService } from './BaseCarouselService.js';
-
-const CONFIG_PATH = join(process.cwd(), 'data', 'carouselConfig.json');
+import { runtimeStateService } from '../storage/runtimeStateService.js';
 
 /**
  * 符合条件子区轮播服务
@@ -21,8 +18,7 @@ export class QualifiedThreadsCarousel extends BaseCarouselService {
     async loadConfig() {
         return await ErrorHandler.handleSilent(
             async () => {
-                const data = await fs.readFile(CONFIG_PATH, 'utf8');
-                const config = JSON.parse(data);
+                const config = await runtimeStateService.getCarouselConfig();
                 this.config = config.qualifiedThreads;
                 return this.config;
             },
@@ -107,4 +103,3 @@ export class QualifiedThreadsCarousel extends BaseCarouselService {
         await message.edit({ embeds: [embed] });
     }
 }
-

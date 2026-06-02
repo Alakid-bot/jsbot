@@ -21,8 +21,10 @@ deploy/config-wizard/index.html
 - 常用频道、Thread、Category ID
 - Forum / Thread 自动化配置
 - 身份组申请配置
+- 自助身份组按钮配置：分组 ID、按钮标签、Emoji、身份组 ID、领取/取消模式
 - AI 答疑接口：FastGPT、OpenAI 兼容 API、SK/API Key、模型名
 - 社区治理 / 投票系统配置：法院频道、提案/辩论 Forum、支持数和投票时长
+- 发言统计查询配置：允许用户私密查询自己、白名单 DCID 查询任意用户
 - Bot 运行监控配置：状态频道、被监控角色、角色显示名
 
 页面会自动生成：
@@ -44,7 +46,9 @@ JSBOT_CONFIG_PATH=/app/data/config.json
 NODE_ENV=production
 ```
 
-一键部署模板会生成随机密码并写入固定的 `PASSWORD` 和 `JSBOT_WEB_PASSWORD`，并在 Zeabur 的 `Web configuration password` 部署说明中显示同一个值，方便复制。配置页打开后先显示独立登录页，只有一个密码输入框；输入 Zeabur 显示的密码后进入配置控制台。如果不设置 `PASSWORD` 或 `JSBOT_WEB_PASSWORD`，容器会自动生成 16 位 fallback 密码，保存到 `JSBOT_WEB_PASSWORD_FILE`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后打开 Zeabur 域名，登录后可直接修改 AI 答疑、投票系统、运行监控等配置并保存重启 Bot。如果使用仓库根目录的 `zeabur-template.yaml`，PostgreSQL 会自动创建，通常不需要额外填写 `JSBOT_PG_CONFIG_JSON_BASE64`。
+一键部署模板会生成随机密码并写入固定的 `PASSWORD` 和 `JSBOT_WEB_PASSWORD`，并在 Zeabur 的 `Web configuration password` 部署说明中显示同一个值，方便复制。配置页打开后先显示独立登录页，只有一个密码输入框；输入 Zeabur 显示的密码后进入配置控制台。如果不设置 `PASSWORD` 或 `JSBOT_WEB_PASSWORD`，容器会自动生成 16 位 fallback 密码，保存到 `JSBOT_WEB_PASSWORD_FILE`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后打开 Zeabur 域名，登录后可直接修改 AI 答疑、投票系统、自助身份组、发言统计查询权限、运行监控等配置并保存重启 Bot。如果使用仓库根目录的 `zeabur-template.yaml`，PostgreSQL 会自动创建，通常不需要额外填写 `JSBOT_PG_CONFIG_JSON_BASE64`。
+
+保存并重启 Bot 后，管理员可用 `/admin_self_role_panel` 发送身份组领取面板，用户可用 `/user_message_stats` 私密查询自己的发言数。若 Discord 的 `/` 指令列表未刷新，请先执行 `/同步指令`。
 
 ## 安全说明
 

@@ -1,17 +1,16 @@
 # Zeabur 部署模板
 
-本目录提供在 Zeabur 部署该 Discord Bot 的模板。容器会同时启动一个受密码保护的 Web 配置页，用于在 Zeabur 域名里填写 Discord Token、服务器 ID、频道/角色 ID、AI SK / OpenAI 兼容接口、投票系统、运行监控等配置；保存后同一进程会启动或重启 Bot。
+本目录提供在 Zeabur 部署该 Discord Bot 的模板。容器会同时启动一个受密码保护的 Web 配置页，用于在 Zeabur 域名里填写 Discord Token、服务器 ID、频道/角色 ID、AI SK / OpenAI 兼容接口、投票系统、自助身份组、发言统计查询权限、运行监控等配置；保存后同一进程会启动或重启 Bot。
 
 ## 文件说明
 
 - `Dockerfile`：Zeabur 会自动识别仓库根目录的 Dockerfile 并按 Docker 部署。
 - `.dockerignore`：避免把本地密钥、数据库、日志、node_modules 打进镜像。
 - `src/supervisor.js`：启动受密码保护的 Web 配置页，并管理 Bot 子进程。
-- `deploy/zeabur/entrypoint.sh`：容器启动时从 Zeabur 环境变量生成可选的初始配置、可选 `pg.config.json` 和 `data/messageIds.json`。
+- `deploy/zeabur/entrypoint.sh`：容器启动时从 Zeabur 环境变量生成可选的初始配置和必需的 `pg.config.json`。
 - `deploy/config-wizard/index.html`：网页配置向导；本地打开时生成配置，Zeabur 域名访问时可直接保存配置并重启 Bot。
 - `deploy/zeabur/env.example`：Zeabur 环境变量模板。
 - `deploy/zeabur/config.zeabur.example.json`：适合复制后填写的 `config.json` 模板。
-- `deploy/zeabur/pg.config.basic.example.json`：普通 PostgreSQL `pg.config.json` 示例。
 - `deploy/zeabur/pg.config.zeabur.example.json`：使用 Zeabur `${POSTGRES_*}` 变量的 PostgreSQL 配置模板。
 - `zeabur-template.yaml`：一键部署模板，会同时创建 Bot 服务和 PostgreSQL 服务。
 
@@ -21,7 +20,7 @@
 2. 在 Zeabur 新建 Project，选择 **GitHub** 服务，并选择你的 fork 仓库；或使用根目录 `zeabur-template.yaml` 一键部署。
 3. Zeabur 会检测根目录 `Dockerfile`，按 Dockerfile 构建并运行。
 4. 在 Zeabur 服务的 **Environment Variables** 添加环境变量。
-5. 添加持久化 Volume，挂载到 `/app/data`，用于保存网页配置的 `config.json`、SQLite 数据库、`messageIds.json`、答疑日志等运行时数据。
+5. 添加持久化 Volume，挂载到 `/app/data`，用于保存网页配置的 `config.json` 和网页登录 fallback 密码。运行时数据库状态统一写入 PostgreSQL。
 6. 如需保留应用日志，也可以额外挂载 `/app/logs`。
 7. 给 Bot 服务绑定 Zeabur 域名，打开域名后进入配置页。
 
@@ -37,6 +36,8 @@ zeabur-template.yaml
 
 - `postgresql`：基于 `postgres:16` 的 PostgreSQL 数据库，持久化目录是 `/var/lib/postgresql/data`。
 - `jsbot`：从 `Alakid-bot/jsbot` 的 `main` 分支构建并运行 Bot，暴露 `8080` HTTP 配置页，持久化目录是 `/app/data` 和 `/app/logs`。
+
+Bot 的惩罚记录、流程/投票状态、监控消息 ID、轮播状态、用户黑名单、自助身份组放弃名单和发言统计都会写入 PostgreSQL。
 
 模板中的 `jsbot` 服务依赖 `postgresql` 服务，Zeabur 会先启动数据库，再启动 Bot 配置页。
 
@@ -69,8 +70,9 @@ JSBOT_WEB_PASSWORD=CHANGE_ME_16_CHARS
 2. 页面会先显示一个只有密码输入框的登录界面。
 3. 密码使用 Zeabur 部署说明中的 `Web configuration password`，也就是环境变量 `PASSWORD` / `JSBOT_WEB_PASSWORD` 的同一个值；如果没有设置这些变量，则查看 Zeabur 日志里的自动生成密码。
 4. 输入正确密码并点击“进入控制台”。
-5. 填写 Discord Token、Guild ID、频道/角色 ID、AI 答疑接口/SK/模型、投票系统、运行监控等配置。
+5. 填写 Discord Token、Guild ID、频道/角色 ID、AI 答疑接口/SK/模型、投票系统、自助身份组、发言统计查询权限、运行监控等配置。
 6. 点击“保存配置并重启 Bot”。配置会写入持久化的 `/app/data/config.json`。
+7. 如果 Discord 的 `/` App 指令列表没有出现新命令，使用管理员账号执行 `/同步指令`。
 
 如果你仍想用环境变量预置初始配置，也可以本地生成：
 
@@ -104,11 +106,16 @@ Zeabur 部署后访问 Bot 服务域名，即可看到配置页。页面支持�
 - 读取服务器已有 `config.json`
 - 填写或修改 Discord Token、服务器 ID、频道/角色 ID
 - 填写 FastGPT 或 OpenAI 兼容接口 URL、SK/API Key、模型名
-- 调整 AI 答疑、社区投票系统和运行监控配置
+- 调整 AI 答疑、社区投票系统、自助身份组、发言统计查询权限和运行监控配置
 - 生成并预览 `config.json` / `JSBOT_CONFIG_JSON_BASE64`
 - 保存到 `/app/data/config.json`
 - 保存后自动启动或重启 Bot
 - 查看 Bot 是否运行、PID、配置路径等状态
+
+自助身份组和发言统计对应两个 App 指令：
+
+- `/admin_self_role_panel`：管理员发送身份组领取面板，用户点击按钮领取或取消配置好的身份组。
+- `/user_message_stats`：普通用户私密查询自己的发言数，白名单 DCID 可私密查询任意用户。
 
 安全注意：
 
@@ -117,9 +124,9 @@ Zeabur 部署后访问 Bot 服务域名，即可看到配置页。页面支持�
 - 推荐使用 Zeabur 的 HTTPS 域名访问。
 - 不要把真实 `config.json`、Token、Key 提交到 GitHub。
 
-## 可选 PostgreSQL 环境变量
+## 必需 PostgreSQL 环境变量
 
-如果使用 `zeabur-template.yaml`，PostgreSQL 会自动创建，通常不需要手动设置 `JSBOT_PG_CONFIG_JSON_BASE64`。Bot 服务会读取 Zeabur 暴露的变量并生成 `/app/pg.config.json`。
+PostgreSQL 是运行时数据库，Bot 启动时必须能生成 `/app/pg.config.json`。如果使用 `zeabur-template.yaml`，PostgreSQL 会自动创建，通常不需要手动设置 `JSBOT_PG_CONFIG_JSON_BASE64`。Bot 服务会读取 Zeabur 暴露的变量并生成 `/app/pg.config.json`。
 
 启动脚本支持标准 `POSTGRES_*` 名称，也支持模板中使用的 `ZEABUR_POSTGRES_*` 名称：
 
@@ -167,7 +174,7 @@ base64 < config.json | tr -d '\n'
 - `config.json` 中的 `token` 必须是真实 Discord Bot Token。
 - `guilds` 至少需要包含你要部署命令的服务器 ID。
 - `commandsDeployed` 首次可设为 `false`，Bot 会尝试部署命令并在容器内更新 `config.json`。
-- 如果没有持久化 `/app/data`，网页保存的 `config.json`、SQLite 数据库和运行时状态会在重建容器后丢失。
+- 如果没有持久化 `/app/data`，网页保存的 `config.json` 和 fallback 登录密码会在重建容器后丢失；运行时状态由 PostgreSQL 持久化。
 - 稳定运行后可把 `commandsDeployed` 改为 `true`，避免每次重建都重新部署命令。
 
 不要将真实 `config.json`、`pg.config.json`、`.env` 提交到 GitHub；这些文件已在 `.gitignore` 中忽略。

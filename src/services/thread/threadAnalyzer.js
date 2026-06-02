@@ -1,6 +1,4 @@
 import { ChannelFlags } from 'discord.js';
-import { promises as fs } from 'fs';
-import { join } from 'path';
 import { EmbedFactory } from '../../factories/embedFactory.js';
 import { delay, globalBatchProcessor } from '../../utils/concurrency.js';
 import { pgSyncScheduler } from '../../schedulers/pgSyncScheduler.js';
@@ -8,8 +6,7 @@ import { ErrorHandler } from '../../utils/errorHandler.js';
 import { handleDiscordError, measureTime, withTimeout } from '../../utils/helper.js';
 import { logTime } from '../../utils/logger.js';
 import { startQualifiedThreadsCarousel } from '../carousel/carouselManager.js';
-
-const MESSAGE_IDS_PATH = join(process.cwd(), 'data', 'messageIds.json');
+import { runtimeStateService } from '../storage/runtimeStateService.js';
 
 /**
  * 加载消息ID配置
@@ -18,8 +15,7 @@ const MESSAGE_IDS_PATH = join(process.cwd(), 'data', 'messageIds.json');
 async function loadMessageIds() {
     return await ErrorHandler.handleSilent(
         async () => {
-            const data = await fs.readFile(MESSAGE_IDS_PATH, 'utf8');
-            return JSON.parse(data);
+            return await runtimeStateService.getMessageIds();
         },
         '加载消息ID配置',
         {}
@@ -32,7 +28,7 @@ async function loadMessageIds() {
  */
 async function saveMessageIds(messageIds) {
     await ErrorHandler.handleService(
-        () => fs.writeFile(MESSAGE_IDS_PATH, JSON.stringify(messageIds, null, 2)),
+        () => runtimeStateService.setMessageIds(messageIds),
         '保存消息ID配置',
         { throwOnError: true }
     );

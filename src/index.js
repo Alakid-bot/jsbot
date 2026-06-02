@@ -18,6 +18,8 @@ import { dbManager } from './sqlite/dbManager.js';
 import { pgManager } from './pg/pgManager.js';
 import { globalTaskScheduler } from './handlers/scheduler.js';
 import { UserBlacklistService } from './services/user/userBlacklistService.js';
+import { loadOptOutList } from './services/role/creatorRoleService.js';
+import { opinionMailboxService } from './services/user/opinionMailboxService.js';
 import { delay, globalRequestQueue } from './utils/concurrency.js';
 import { globalLockManager } from './utils/lockManager.js';
 
@@ -162,9 +164,9 @@ const gracefulShutdown = async (client, signal) => {
         }
 
         // 强制保存帖子拉黑数据
-        UserBlacklistService.forceSave();
+        await UserBlacklistService.forceSaveAsync();
 
-        // 关闭SqLite数据库连接
+        // 关闭PostgreSQL运行时数据库兼容层
         if (dbManager && dbManager.getConnectionStatus()) {
             await dbManager.disconnect();
         }
@@ -213,11 +215,12 @@ async function main() {
         // 初始化进程事件调度器
         setupProcessHandlers(client);
 
-        // 初始化SQLite数据库连接
+        // 初始化PostgreSQL数据库连接。运行时数据统一写入PostgreSQL；连接失败即停止启动。
         try {
+            await pgManager.connect();
             await dbManager.connect();
         } catch (error) {
-            logTime('[数据库] 初始化失败，无法继续运行:', true);
+            logTime('[数据库] PostgreSQL初始化失败，无法继续运行:', true);
             console.error('错误详情:', error);
             if (error.details) {
                 console.error('额外信息:', error.details);
@@ -225,20 +228,13 @@ async function main() {
             process.exit(1);
         }
 
-        // 初始化PostgreSQL数据库连接
-        try {
-            await pgManager.connect();
-        } catch (error) {
-            logTime('[数据库] PostgreSQL初始化失败（非致命错误）:', true);
-            console.error('错误详情:', error);
-            // PostgreSQL连接失败不会导致程序退出
-        }
-
         // 初始化配置管理器
         client.guildManager.initialize(config);
 
         // 加载帖子拉黑数据
-        UserBlacklistService.loadBlacklistData();
+        await UserBlacklistService.loadBlacklistData();
+        await loadOptOutList();
+        await opinionMailboxService.initialize();
 
         // 登录
         try {

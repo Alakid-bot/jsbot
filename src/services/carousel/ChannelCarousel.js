@@ -1,12 +1,8 @@
-import { promises as fs } from 'fs';
 import schedule from 'node-schedule';
-import { join } from 'path';
 import { ErrorHandler } from '../../utils/errorHandler.js';
 import { logTime } from '../../utils/logger.js';
 import { BaseCarouselService } from './BaseCarouselService.js';
-
-const CONFIG_PATH = join(process.cwd(), 'data', 'carouselConfig.json');
-const MESSAGE_IDS_PATH = join(process.cwd(), 'data', 'messageIds.json');
+import { runtimeStateService } from '../storage/runtimeStateService.js';
 
 // Emoji数字映射
 const EMOJI_NUMBERS = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
@@ -38,8 +34,7 @@ export class ChannelCarousel extends BaseCarouselService {
     async loadConfig() {
         return await ErrorHandler.handleSilent(
             async () => {
-                const data = await fs.readFile(CONFIG_PATH, 'utf8');
-                return JSON.parse(data);
+                return await runtimeStateService.getCarouselConfig();
             },
             '加载轮播配置',
             { channelCarousels: {} }
@@ -51,7 +46,7 @@ export class ChannelCarousel extends BaseCarouselService {
      */
     async saveConfig(config) {
         await ErrorHandler.handleService(
-            () => fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2)),
+            () => runtimeStateService.setCarouselConfig(config),
             '保存轮播配置',
             { throwOnError: true }
         );
@@ -63,8 +58,7 @@ export class ChannelCarousel extends BaseCarouselService {
     async loadMessageIds() {
         return await ErrorHandler.handleSilent(
             async () => {
-                const data = await fs.readFile(MESSAGE_IDS_PATH, 'utf8');
-                return JSON.parse(data);
+                return await runtimeStateService.getMessageIds();
             },
             '加载消息ID配置',
             {}
@@ -76,7 +70,7 @@ export class ChannelCarousel extends BaseCarouselService {
      */
     async saveMessageIds(messageIds) {
         await ErrorHandler.handleService(
-            () => fs.writeFile(MESSAGE_IDS_PATH, JSON.stringify(messageIds, null, 2)),
+            () => runtimeStateService.setMessageIds(messageIds),
             '保存消息ID配置',
             { throwOnError: true }
         );
@@ -467,4 +461,3 @@ export class ChannelCarousel extends BaseCarouselService {
         this.checkJobs.clear();
     }
 }
-

@@ -7,8 +7,8 @@ import { initModels } from './models/index.js';
 
 /**
  * PostgreSQL数据库管理器
- * 使用Sequelize ORM管理外部PostgreSQL数据库
- * 与内置SQLite数据库（dbManager.js）隔离
+ * 使用Sequelize ORM管理PostgreSQL数据库
+ * Bot运行时数据统一写入PostgreSQL
  */
 class PgManager {
     constructor() {
@@ -262,4 +262,3 @@ class PgManager {
 
 export const pgManager = new PgManager();
 export default pgManager;
-

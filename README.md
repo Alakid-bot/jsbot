@@ -1,4 +1,4 @@
-# Gatekeeper in Horizon Bot Project
+# JSBot
 
 基于Discord.js的Discord bot项目，提供服务器管理、楼主自动化等功能。
 
@@ -7,6 +7,7 @@
 - Node.js 18.x 或更高版本
 - pnpm 包管理器
 - PM2 进程管理器（生产环境）
+- PostgreSQL 数据库（运行时数据统一存储在 PostgreSQL）
 
 ### 本地开发
 
@@ -27,9 +28,9 @@ pnpm install
 - 包含 Discord bot token 和服务器配置
 - 不需要的模块将 `enabled` 设置为 `false`
 
-在 `data` 目录创建 `messageIds.json`：
-- 参考 `messageIds.example.json` 填写
-- 如果 `data` 目录不存在，需要先创建
+创建 `pg.config.json`：
+- 参考 `pg.config.example.json` 填写 PostgreSQL 连接信息
+- Bot 的惩罚记录、流程/投票状态、监控消息 ID、轮播状态、用户黑名单、自助身份组放弃名单和发言统计都会写入 PostgreSQL
 
 3. **运行Bot**
 
@@ -66,7 +67,7 @@ pnpm install
 chmod +x start.sh update.sh
 
 # 配置config.json（参考config.example.json）
-# 配置data/messageIds.json（参考messageIds.example.json）
+# 配置pg.config.json（参考pg.config.example.json）
 
 # 启动Bot
 ./start.sh
@@ -150,14 +151,16 @@ JSBOT_CONFIG_PATH=/app/data/config.json
 NODE_ENV=production
 ```
 
-一键部署模板会生成随机密码并同时写入 `PASSWORD` 和 `JSBOT_WEB_PASSWORD`，Zeabur 的 `Web configuration password` 部署说明会显示同一个值，方便复制。配置页打开后会先显示独立登录页，只有一个密码输入框；输入 Zeabur 显示的这个密码后进入配置控制台。如果没有设置 `PASSWORD` 或 `JSBOT_WEB_PASSWORD`，容器启动时会自动生成一个 16 位 fallback 密码，保存到 `/app/data/web-password.txt`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后给 `jsbot` 服务绑定 Zeabur 域名，打开域名并输入密码，然后在网页中填写 Discord Token、服务器 ID、频道/角色 ID、AI SK / OpenAI 兼容接口、投票系统和运行监控等信息，点击“保存配置并重启 Bot”。配置会保存到持久化的 `/app/data/config.json`。
+一键部署模板会生成随机密码并同时写入 `PASSWORD` 和 `JSBOT_WEB_PASSWORD`，Zeabur 的 `Web configuration password` 部署说明会显示同一个值，方便复制。配置页打开后会先显示独立登录页，只有一个密码输入框；输入 Zeabur 显示的这个密码后进入配置控制台。如果没有设置 `PASSWORD` 或 `JSBOT_WEB_PASSWORD`，容器启动时会自动生成一个 16 位 fallback 密码，保存到 `/app/data/web-password.txt`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后给 `jsbot` 服务绑定 Zeabur 域名，打开域名并输入密码，然后在网页中填写 Discord Token、服务器 ID、频道/角色 ID、AI SK / OpenAI 兼容接口、投票系统、自助身份组、发言统计查询权限和运行监控等信息，点击“保存配置并重启 Bot”。配置会保存到持久化的 `/app/data/config.json`。
+
+自助身份组和发言统计会注册为 Discord App 指令：管理员使用 `/admin_self_role_panel` 在频道发送身份组领取面板，用户使用 `/user_message_stats` 私密查询自己的发言数，白名单 DCID 可查询任意用户。部署更新后如果 Discord 的 `/` 指令列表里还没出现新命令，请先用管理员账号执行 `/同步指令`。
 
 如果你想预置初始配置，也可以直接用浏览器打开 `deploy/config-wizard/index.html`，填写信息后复制页面生成的 `JSBOT_CONFIG_JSON_BASE64` 到 Zeabur 环境变量。
 
-如需启用 PostgreSQL 相关功能，再设置：
+PostgreSQL 现在是必需运行时数据库。如果不使用一键部署模板自动创建数据库，可以手动提供：
 
 ```env
-JSBOT_PG_CONFIG_JSON_BASE64=BASE64_ENCODED_PG_CONFIG_JSON
+# JSBOT_PG_CONFIG_JSON_BASE64=BASE64_ENCODED_PG_CONFIG_JSON
 ```
 
 如果使用 `zeabur-template.yaml` 一键部署，则会同时创建 PostgreSQL 16 服务；Bot 启动时会根据 Zeabur 暴露的 `POSTGRES_HOST`、`POSTGRES_PORT`、`POSTGRES_DATABASE`、`POSTGRES_USERNAME`、`POSTGRES_PASSWORD` 自动生成 `pg.config.json`，通常不需要手动设置 `JSBOT_PG_CONFIG_JSON_BASE64`。
@@ -175,7 +178,8 @@ jsbot/
 │   ├── events/          # Discord事件处理
 │   ├── handlers/        # 交互处理器（按钮、模态框、定时任务）
 │   ├── services/        # 业务逻辑服务
-│   ├── db/              # 数据库管理
+│   ├── pg/              # PostgreSQL 连接和同步模型
+│   ├── sqlite/          # PostgreSQL runtime 兼容层（历史路径名）
 │   └── utils/           # 工具函数
 ├── data/                # 数据存储目录
 ├── logs/                # 日志文件

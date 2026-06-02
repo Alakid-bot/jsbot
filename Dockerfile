@@ -8,16 +8,12 @@ ENV NODE_ENV=production \
 # Runtime packages:
 # - chromium + fonts: required by node-html-to-image / puppeteer-core fallback paths
 # - git: optional, used by getVersionInfo(); failures are non-fatal if .git is absent
-# - python3/make/g++: allows sqlite3 native dependency to build if no prebuild is available
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         chromium \
         fonts-noto-cjk \
         git \
-        python3 \
-        make \
-        g++ \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json ./

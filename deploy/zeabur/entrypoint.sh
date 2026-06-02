@@ -165,8 +165,7 @@ setup_web_password
 # service starts.
 write_json_from_env "$JSBOT_CONFIG_PATH" "JSBOT_CONFIG_JSON" "JSBOT_CONFIG_JSON_BASE64" "false"
 
-# Optional PostgreSQL configuration. The bot treats PostgreSQL startup failure
-# as non-fatal, but providing this enables PG-backed features.
+# PostgreSQL configuration is required because runtime data is stored in PostgreSQL.
 write_json_from_env "pg.config.json" "JSBOT_PG_CONFIG_JSON" "JSBOT_PG_CONFIG_JSON_BASE64" "false"
 
 # If this service is deployed together with a Zeabur PostgreSQL service, Zeabur
@@ -176,18 +175,9 @@ write_pg_json_from_postgres_env
 
 if [ -f "pg.config.json" ]; then
     node -e "JSON.parse(require('fs').readFileSync('pg.config.json', 'utf8'))"
+else
+    echo "Missing PostgreSQL configuration. Set JSBOT_PG_CONFIG_JSON/BASE64 or deploy with the Zeabur PostgreSQL template." >&2
+    exit 1
 fi
-
-# Optional persistent message IDs. If omitted, create an empty file so runtime
-# modules that read data/messageIds.json have a sane starting point.
-if [ -n "$(printenv JSBOT_MESSAGE_IDS_JSON_BASE64 || true)" ]; then
-    printf '%s' "$(printenv JSBOT_MESSAGE_IDS_JSON_BASE64)" | base64 -d > data/messageIds.json
-elif [ -n "$(printenv JSBOT_MESSAGE_IDS_JSON || true)" ]; then
-    printf '%s' "$(printenv JSBOT_MESSAGE_IDS_JSON)" > data/messageIds.json
-elif [ ! -f data/messageIds.json ]; then
-    printf '{}\n' > data/messageIds.json
-fi
-
-node -e "JSON.parse(require('fs').readFileSync('data/messageIds.json', 'utf8'))"
 
 exec "$@"

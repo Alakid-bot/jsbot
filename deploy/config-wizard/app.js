@@ -42,6 +42,11 @@
         'debateTagId',
         'motionTagId',
         'voteDurationHours',
+        'selfServiceRolesEnabled',
+        'messageStatsEnabled',
+        'messageStatsQueryAllowUserIds',
+        'messageStatsAllowSelfQuery',
+        'messageStatsTrackBots',
         'monitorEnabled',
         'roleMonitorCategoryId',
         'monitorChannelId',
@@ -204,6 +209,108 @@
         }
 
         return new TextDecoder().decode(bytes);
+    }
+
+    function makeGroupRow(group = {}) {
+        const row = document.createElement('div');
+        row.className = 'group-row';
+        row.innerHTML = `
+            <label class="field">
+                <span>分组 ID <em>必填</em></span>
+                <input class="group-id" type="text" placeholder="例如 creator" />
+            </label>
+            <label class="field">
+                <span>标签 <em>必填</em></span>
+                <input class="group-label" type="text" placeholder="展示给用户的名称" />
+            </label>
+            <label class="field">
+                <span>描述</span>
+                <input class="group-description" type="text" placeholder="可选说明" />
+            </label>
+            <label class="field">
+                <span>Emoji</span>
+                <input class="group-emoji" type="text" placeholder="例如 🎨" />
+            </label>
+            <label class="field">
+                <span>身份组 ID <em>必填</em></span>
+                <input class="group-roleId" type="text" inputmode="numeric" placeholder="123456789012345678" />
+            </label>
+            <label class="field">
+                <span>模式</span>
+                <select class="group-mode">
+                    <option value="toggle">toggle（领取/取消）</option>
+                    <option value="grant">grant（只领取）</option>
+                    <option value="remove">remove（只移除）</option>
+                </select>
+            </label>
+            <button class="danger remove-group" type="button">删除</button>
+        `;
+        row.querySelector('.group-id').value = group.id || '';
+        row.querySelector('.group-label').value = group.label || '';
+        row.querySelector('.group-description').value = group.description || '';
+        row.querySelector('.group-emoji').value = group.emoji || '';
+        row.querySelector('.group-roleId').value = group.roleId || '';
+        row.querySelector('.group-mode').value = group.mode || 'toggle';
+        return row;
+    }
+
+    function ensureGroupRow() {
+        const container = $('selfServiceRolesGroups');
+        if (!container.children.length) {
+            container.appendChild(makeGroupRow());
+        }
+    }
+
+    function getGroupRows() {
+        return Array.from(document.querySelectorAll('.group-row'));
+    }
+
+    function collectSelfServiceRoles(warnings) {
+        const enabled = $('selfServiceRolesEnabled').checked;
+        const groups = [];
+        const rows = getGroupRows();
+
+        rows.forEach((row, index) => {
+            const id = row.querySelector('.group-id').value.trim();
+            const label = row.querySelector('.group-label').value.trim();
+            const description = row.querySelector('.group-description').value.trim();
+            const emoji = row.querySelector('.group-emoji').value.trim();
+            const roleId = row.querySelector('.group-roleId').value.trim();
+            const mode = row.querySelector('.group-mode').value || 'toggle';
+
+            if (!id && !label && !roleId && !description && !emoji) {
+                return;
+            }
+
+            if (!id || !label || !roleId) {
+                warnings.push(`自助身份组 #${index + 1} 缺少 ID、标签或身份组 ID，已跳过。`);
+                return;
+            }
+
+            if (!discordIdPattern.test(roleId)) {
+                warnings.push(`自助身份组 #${index + 1} 的身份组 ID「${roleId}」不像标准 Discord ID。`);
+            }
+
+            groups.push({ id, label, description, emoji, roleId, mode });
+        });
+
+        if (enabled && groups.length === 0) {
+            warnings.push('已启用自助身份组，但还没有有效分组。');
+        }
+
+        return { enabled, groups };
+    }
+
+    function collectMessageStats(warnings) {
+        const enabled = $('messageStatsEnabled').checked;
+        const queryAllowUserIds = parseList($('messageStatsQueryAllowUserIds').value);
+        warnAboutIds(warnings, '消息统计查询白名单用户 ID', queryAllowUserIds);
+        return {
+            enabled,
+            queryAllowUserIds,
+            allowSelfQuery: $('messageStatsAllowSelfQuery').checked,
+            trackBots: $('messageStatsTrackBots').checked,
+        };
     }
 
     function makeEndpointRow(endpoint = {}) {
@@ -444,6 +551,39 @@
             });
         }
 
+        if ($('selfServiceRolesEnabled').checked) {
+            const rows = getGroupRows();
+            let validCount = 0;
+            rows.forEach((row, index) => {
+                const id = row.querySelector('.group-id').value.trim();
+                const label = row.querySelector('.group-label').value.trim();
+                const roleId = row.querySelector('.group-roleId').value.trim();
+                if (!id && !label && !roleId) return;
+
+                if (!id) errors.push(`自助身份组 #${index + 1} 缺少分组 ID。`);
+                if (!label) errors.push(`自助身份组 #${index + 1} 缺少标签。`);
+                if (!roleId) errors.push(`自助身份组 #${index + 1} 缺少身份组 ID。`);
+                if (roleId && !discordIdPattern.test(roleId)) {
+                    errors.push(`自助身份组 #${index + 1} 身份组 ID 不像标准 Discord ID。`);
+                }
+                if (id && label && roleId) {
+                    validCount += 1;
+                }
+            });
+            if (validCount === 0) {
+                errors.push('已启用自助身份组，但还没有有效分组。请至少填写一个分组的 ID、标签和身份组 ID。');
+            }
+        }
+
+        if ($('messageStatsEnabled').checked) {
+            const queryAllowUserIds = parseList($('messageStatsQueryAllowUserIds').value);
+            queryAllowUserIds.forEach((value) => {
+                if (!discordIdPattern.test(value)) {
+                    errors.push(`消息统计查询白名单用户 ID「${value}」不像标准 Discord ID。`);
+                }
+            });
+        }
+
         return errors;
     }
 
@@ -536,6 +676,9 @@
             });
         }
 
+        const selfServiceRoles = collectSelfServiceRoles(warnings);
+        const messageStats = collectMessageStats(warnings);
+
         const serverConfig = {
             serverType: trimValue('serverType') || 'Main server',
             commandsDeployed: $('commandsDeployed').checked,
@@ -582,6 +725,8 @@
                 monitoredRoleId: nullableValue('monitoredRoleId'),
                 roleDisplayName: trimValue('roleDisplayName') || '角色',
             },
+            selfServiceRoles,
+            messageStats,
             autoDeleteChannels,
         };
 
@@ -627,6 +772,8 @@
         const openaiCount = endpoints.filter((endpoint) => endpoint.provider === 'openai-compatible' || endpoint.model).length;
         const courtSystem = guildConfig.courtSystem || {};
         const monitor = guildConfig.monitor || {};
+        const selfServiceRoles = guildConfig.selfServiceRoles || {};
+        const messageStats = guildConfig.messageStats || {};
 
         const items = [
             {
@@ -646,6 +793,20 @@
                 title: '投票系统',
                 value: courtSystem.enabled ? `启用，投票 ${hoursFromMs(courtSystem.voteDuration, 24)} 小时` : '关闭',
                 detail: courtSystem.enabled ? `需要 ${courtSystem.requiredSupports || 20} 个支持进入辩论` : '法院/议案/辩论流程未启用',
+            },
+            {
+                title: '自助身份组',
+                value: selfServiceRoles.enabled ? `启用，${(selfServiceRoles.groups || []).length} 个分组` : '关闭',
+                detail: selfServiceRoles.enabled
+                    ? `模式: ${(selfServiceRoles.groups || []).map((g) => g.label || g.id).join('、')}`
+                    : '用户可自行申请/切换身份组',
+            },
+            {
+                title: '消息统计',
+                value: messageStats.enabled ? '启用' : '关闭',
+                detail: messageStats.enabled
+                    ? `白名单 ${(messageStats.queryAllowUserIds || []).length} 人，${messageStats.allowSelfQuery ? '允许自助查询' : '不允许自助查询'}`
+                    : '用户可私密查自己，白名单可查任意用户',
             },
             {
                 title: '运行监控',
@@ -963,6 +1124,13 @@
         $('voteDurationHours').value = '24';
         $('roleDisplayName').value = '角色';
         $('fastgptEndpoints').innerHTML = '';
+        $('selfServiceRolesEnabled').checked = false;
+        $('selfServiceRolesGroups').innerHTML = '';
+        $('messageStatsEnabled').checked = false;
+        $('messageStatsQueryAllowUserIds').value = '';
+        $('messageStatsAllowSelfQuery').checked = true;
+        $('messageStatsTrackBots').checked = false;
+        ensureGroupRow();
         ensureEndpointRow();
         renderOutput();
     }
@@ -1044,6 +1212,30 @@
         setNullable('monitorChannelId', monitor.monitorChannelId);
         setNullable('monitoredRoleId', monitor.monitoredRoleId);
         $('roleDisplayName').value = monitor.roleDisplayName || '角色';
+
+        const selfServiceRoles = guildConfig.selfServiceRoles || {};
+        $('selfServiceRolesEnabled').checked = Boolean(selfServiceRoles.enabled);
+        $('selfServiceRolesGroups').innerHTML = '';
+        const groups = Array.isArray(selfServiceRoles.groups) ? selfServiceRoles.groups : [];
+        groups.forEach((group) => {
+            $('selfServiceRolesGroups').appendChild(
+                makeGroupRow({
+                    id: group.id || '',
+                    label: group.label || '',
+                    description: group.description || '',
+                    emoji: group.emoji || '',
+                    roleId: group.roleId || '',
+                    mode: group.mode || 'toggle',
+                }),
+            );
+        });
+        ensureGroupRow();
+
+        const messageStats = guildConfig.messageStats || {};
+        $('messageStatsEnabled').checked = Boolean(messageStats.enabled);
+        setTextList('messageStatsQueryAllowUserIds', messageStats.queryAllowUserIds);
+        $('messageStatsAllowSelfQuery').checked = messageStats.allowSelfQuery !== false;
+        $('messageStatsTrackBots').checked = Boolean(messageStats.trackBots);
 
         if (guildIds.length > 1) {
             showCopyStatus(`已导入第一个服务器配置：${guildId}。多服务器配置请分别生成后手动合并。`);
@@ -1134,6 +1326,21 @@
             renderOutput();
         });
 
+        $('addSelfServiceRoleGroup').addEventListener('click', () => {
+            $('selfServiceRolesGroups').appendChild(makeGroupRow());
+            renderOutput();
+        });
+
+        $('selfServiceRolesGroups').addEventListener('click', (event) => {
+            const button = event.target.closest('.remove-group');
+            if (!button) {
+                return;
+            }
+            button.closest('.group-row').remove();
+            ensureGroupRow();
+            renderOutput();
+        });
+
         $('copyConfig').addEventListener('click', () => copyText($('configOutput').value, 'config.json'));
         $('copyBase64').addEventListener('click', () => copyText($('base64Output').value, 'JSBOT_CONFIG_JSON_BASE64'));
         $('copyEnv').addEventListener('click', () => copyText($('envOutput').value, 'Zeabur 环境变量'));
@@ -1162,6 +1369,7 @@
 
     async function bootstrap() {
         ensureEndpointRow();
+        ensureGroupRow();
         setupMode();
         wireEvents();
         renderOutput();
