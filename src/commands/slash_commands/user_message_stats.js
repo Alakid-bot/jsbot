@@ -6,12 +6,12 @@ export default {
     cooldown: 5,
     ephemeral: true,
     data: new SlashCommandBuilder()
-        .setName('user_message_stats')
+        .setName('发言统计')
         .setDescription('私密查询近 7 天发言统计')
         .addStringOption(option =>
             option
-                .setName('dcid')
-                .setDescription('可选：要查询的 Discord 用户 ID。不填则查询自己')
+                .setName('用户编号')
+                .setDescription('可选：要查询的 Discord 用户编号。不填则查询自己')
                 .setRequired(false),
         ),
 

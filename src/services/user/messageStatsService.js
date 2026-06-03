@@ -184,7 +184,7 @@ class MessageStatsService {
         }
 
         const requesterId = interaction.user.id;
-        const rawTargetId = interaction.options.getString('dcid');
+        const rawTargetId = interaction.options.getString('用户编号');
         let targetId;
 
         try {

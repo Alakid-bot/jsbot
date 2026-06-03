@@ -22,7 +22,7 @@ export default {
                 ),
         )
         .addUserOption(option => option.setName('用户').setDescription('筛选特定用户（可选）').setRequired(false))
-        .addStringOption(option => option.setName('id').setDescription('通过ID直接查询特定记录（可选）').setRequired(false)),
+        .addStringOption(option => option.setName('记录编号').setDescription('通过记录编号直接查询特定记录（可选）').setRequired(false)),
 
     async execute(interaction, guildConfig) {
         try {
@@ -33,7 +33,7 @@ export default {
 
             const type = interaction.options.getString('类型');
             const targetUser = interaction.options.getUser('用户');
-            const queryId = interaction.options.getString('id');
+            const queryId = interaction.options.getString('记录编号');
 
             if (type === 'punishment') {
                 // 根据ID精确查询或按条件查询

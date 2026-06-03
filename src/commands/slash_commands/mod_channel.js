@@ -25,7 +25,7 @@ export default {
                 .addIntegerOption(option =>
                     option.setName('限速').setDescription('发言限速时间(秒)').setMinValue(0).setMaxValue(21600),
                 )
-                .addBooleanOption(option => option.setName('nsfw').setDescription('是否为年龄限制频道'))
+                .addBooleanOption(option => option.setName('年龄限制').setDescription('是否为年龄限制频道'))
                 .addIntegerOption(option =>
                     option
                         .setName('自动归档')
@@ -81,7 +81,7 @@ async function handleEditChannel(interaction) {
     const newName = interaction.options.getString('名称');
     const newTopic = interaction.options.getString('主题');
     const newSlowMode = interaction.options.getInteger('限速');
-    const newNsfw = interaction.options.getBoolean('nsfw');
+    const newNsfw = interaction.options.getBoolean('年龄限制');
     const newAutoArchive = interaction.options.getInteger('自动归档');
 
     // 构建更新对象

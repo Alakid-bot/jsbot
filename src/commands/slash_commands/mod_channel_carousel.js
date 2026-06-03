@@ -118,7 +118,7 @@ export default {
                 .setDescription('向当前频道的轮播添加新条目')
                 .addIntegerOption(option =>
                     option
-                        .setName('id')
+                        .setName('条目编号')
                         .setDescription('指定条目ID（可选，不指定则自动生成）')
                         .setMinValue(1)
                         .setRequired(false)
@@ -130,7 +130,7 @@ export default {
                 .setDescription('编辑当前频道轮播的某个条目')
                 .addIntegerOption(option =>
                     option
-                        .setName('id')
+                        .setName('条目编号')
                         .setDescription('条目ID')
                         .setMinValue(1)
                         .setRequired(true)
@@ -143,7 +143,7 @@ export default {
                 .setDescription('删除当前频道轮播的某个条目')
                 .addIntegerOption(option =>
                     option
-                        .setName('id')
+                        .setName('条目编号')
                         .setDescription('条目ID')
                         .setMinValue(1)
                         .setRequired(true)
@@ -337,7 +337,7 @@ async function handleAddItemSubcommand(interaction, channelCarousel, guildId, ch
         return;
     }
 
-    const customId = interaction.options.getInteger('id');
+    const customId = interaction.options.getInteger('条目编号');
 
     // 如果指定了ID，检查是否已存在
     if (customId && config.items.some(item => item.id === customId)) {
@@ -367,7 +367,7 @@ async function handleEditItemSubcommand(interaction, channelCarousel, guildId, c
         return;
     }
 
-    const itemId = interaction.options.getInteger('id');
+    const itemId = interaction.options.getInteger('条目编号');
     const item = config.items.find(i => i.id === itemId);
     if (!item) {
         await interaction.reply({
@@ -394,7 +394,7 @@ async function handleDeleteItemSubcommand(interaction, channelCarousel, guildId,
         return;
     }
 
-    const itemId = interaction.options.getInteger('id');
+    const itemId = interaction.options.getInteger('条目编号');
     const itemIndex = config.items.findIndex(i => i.id === itemId);
     if (itemIndex === -1) {
         await interaction.editReply({
@@ -422,4 +422,3 @@ async function handleDeleteItemSubcommand(interaction, channelCarousel, guildId,
         channelCarousel.stopChannelCarousel(guildId, channelId);
     }
 }
-

@@ -7,11 +7,11 @@ export default {
     cooldown: 5,
     ephemeral: true,
     data: new SlashCommandBuilder()
-        .setName('admin_self_role_panel')
+        .setName('发送自助身份组面板')
         .setDescription('发送身份组自助领取面板')
         .addChannelOption(option =>
             option
-                .setName('channel')
+                .setName('频道')
                 .setDescription('发送面板的频道，默认当前频道')
                 .setRequired(false)
                 .addChannelTypes(ChannelType.GuildText, ChannelType.PublicThread, ChannelType.PrivateThread),
@@ -23,7 +23,7 @@ export default {
         }
 
         try {
-            const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
+            const targetChannel = interaction.options.getChannel('频道') || interaction.channel;
             const panel = selfServiceRoleService.buildPanel(guildConfig);
             await targetChannel.send(panel);
             await interaction.editReply({ content: `✅ 已在 <#${targetChannel.id}> 发送身份组自助面板。` });
