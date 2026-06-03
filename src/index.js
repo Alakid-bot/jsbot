@@ -10,6 +10,7 @@ import { Client, Collection, Events, GatewayIntentBits, Options, REST, Routes } 
 // 本地工具函数
 import GuildManager from './utils/guildManager.js';
 import { getConfigPath, readBotConfig } from './utils/configPaths.js';
+import { getEnabledCommandData } from './utils/commandInventory.js';
 import { getVersionInfo, handleDiscordError, loadCommandFiles } from './utils/helper.js';
 import { logTime } from './utils/logger.js';
 
@@ -114,12 +115,12 @@ const handleProcessError = async (error, source = '') => {
 // 命令部署函数
 const deployCommands = async (client, commands, config) => {
     const rest = new REST({ version: '10' }).setToken(config.token);
-    const commandData = Array.from(commands.values()).map(cmd => cmd.data.toJSON());
     let configUpdated = false;
 
     await Promise.all(
         Object.entries(config.guilds).map(async ([guildId, guildConfig]) => {
             if (guildConfig.commandsDeployed) return;
+            const commandData = getEnabledCommandData(commands, guildConfig);
 
             try {
                 logTime(`正在为服务器 ${guildId} 部署命令`);

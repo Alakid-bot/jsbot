@@ -31,6 +31,7 @@ export class GuildManager {
             const serverConfig = {
                 id: guildId, // string - Discord服务器ID
                 serverType: guildConfig.serverType || '', // string - 服务器类型，'Main server' 或 'Sub server'
+                enabledCommands: Array.isArray(guildConfig.enabledCommands) ? guildConfig.enabledCommands : undefined, // string[] | undefined - 启用的Discord指令名，未配置表示全部启用
                 moderationLogThreadId: guildConfig.moderationLogThreadId, // string - 管理日志频道ID
                 threadLogThreadId: guildConfig.threadLogThreadId, // string - 帖子操作日志频道ID
                 opinionMailThreadId: guildConfig.opinionMailThreadId, // string - 意见信箱频道ID

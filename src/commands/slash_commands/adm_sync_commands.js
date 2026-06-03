@@ -1,6 +1,7 @@
 import { Collection, REST, Routes, SlashCommandBuilder } from 'discord.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { filterCommandsForGuild, getEnabledCommandData } from '../../utils/commandInventory.js';
 import { checkAndHandlePermission, handleCommandError, loadCommandFiles, measureTime } from '../../utils/helper.js';
 import { logTime } from '../../utils/logger.js';
 
@@ -26,7 +27,8 @@ export default {
 
             // 合并所有命令
             const localCommands = new Map([...slashCommands, ...contextMenuCommands]);
-            const localCommandData = Array.from(localCommands.values()).map(cmd => cmd.data.toJSON());
+            const enabledLocalCommands = filterCommandsForGuild(localCommands, guildConfig);
+            const localCommandData = getEnabledCommandData(localCommands, guildConfig);
 
             // 创建 REST 实例
             const rest = new REST({ version: '10' }).setToken(interaction.client.token);
@@ -78,8 +80,8 @@ export default {
             }
 
             // 添加命令类型统计
-            const slashCount = slashCommands.size;
-            const contextMenuCount = contextMenuCommands.size;
+            const slashCount = filterCommandsForGuild(slashCommands, guildConfig).size;
+            const contextMenuCount = filterCommandsForGuild(contextMenuCommands, guildConfig).size;
             statusReport.push(`本地命令统计: 斜杠命令 ${slashCount} 个, 上下文菜单命令 ${contextMenuCount} 个`);
 
             if (commandsToDelete.length === 0 && commandsToUpdate.length === 0) {
@@ -109,6 +111,7 @@ export default {
 
             // 更新客户端的commands集合
             interaction.client.commands = new Collection(localCommands);
+            interaction.client.enabledCommands = new Collection(enabledLocalCommands);
 
             await interaction.editReply({
                 content: `✅ 命令同步完成，总用时: ${deployTimer()}秒\n${statusReport.join('\n')}`,

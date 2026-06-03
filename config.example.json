@@ -4,6 +4,9 @@
         "guildId1": {
             "serverType": "string (Main server | Sub server)",
             "commandsDeployed": "boolean",
+            "enabledCommands": [
+                "string (Discord app command names to register for this guild; omit this field to enable all loaded commands)"
+            ],
             "moderationLogThreadId": "string (Discord channel ID)",
             "threadLogThreadId": "string (Discord channel ID)",
             "opinionMailThreadId": "string (Discord channel ID)",

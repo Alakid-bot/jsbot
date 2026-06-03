@@ -1,3 +1,4 @@
+import { isCommandEnabled } from '../utils/commandInventory.js';
 import { ErrorHandler } from '../utils/errorHandler.js';
 
 /**
@@ -7,6 +8,12 @@ import { ErrorHandler } from '../utils/errorHandler.js';
 export async function handleAutocomplete(interaction) {
     const command = interaction.client.commands.get(interaction.commandName);
     if (!command?.autocomplete) {
+        return;
+    }
+
+    const guildConfig = interaction.client.guildManager.getGuildConfig(interaction.guildId);
+    if (!isCommandEnabled(guildConfig, interaction.commandName)) {
+        await interaction.respond([]);
         return;
     }
 

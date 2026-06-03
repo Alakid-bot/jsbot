@@ -1,5 +1,6 @@
 import { globalRequestQueue } from '../utils/concurrency.js';
 import { globalCooldownManager } from '../utils/cooldownManager.js';
+import { isCommandEnabled } from '../utils/commandInventory.js';
 import { ErrorHandler } from '../utils/errorHandler.js';
 import { logTime } from '../utils/logger.js';
 
@@ -52,6 +53,16 @@ export async function handleCommand(interaction) {
         return;
     }
 
+    // 获取服务器配置并在冷却/队列前拦截已禁用的陈旧交互
+    const guildConfig = interaction.client.guildManager.getGuildConfig(interaction.guildId);
+    if (!isCommandEnabled(guildConfig, interaction.commandName)) {
+        await interaction.reply({
+            content: '此指令已在当前服务器禁用，请联系管理员重新同步指令。',
+            flags: ['Ephemeral'],
+        });
+        return;
+    }
+
     // 判断是否需要 defer
     const needsDefer = shouldDeferCommand(command, interaction);
 
@@ -85,9 +96,6 @@ export async function handleCommand(interaction) {
                 await cooldownCheck.reply();
                 return;
             }
-
-            // 获取服务器配置
-            const guildConfig = interaction.client.guildManager.getGuildConfig(interaction.guildId);
 
             // 获取命令优先级并执行
             const priority = getPriorityByCommandName(command.data.name);

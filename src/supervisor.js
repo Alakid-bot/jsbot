@@ -9,6 +9,12 @@ import { dirname, extname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { pgManager } from './pg/pgManager.js';
 import { getConfigPath } from './utils/configPaths.js';
+import {
+    getCommandInventory,
+    getEnabledCommandData,
+    getUnknownEnabledCommands,
+    summarizeCommandSelection,
+} from './utils/commandInventory.js';
 import { loadCommandFiles } from './utils/helper.js';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -228,6 +234,17 @@ function validateConfig(config) {
         const guildConfig = config.guilds[guildId];
         if (!guildConfig || typeof guildConfig !== 'object' || Array.isArray(guildConfig)) {
             throw new Error(`服务器 ${guildId} 的配置必须是对象`);
+        }
+
+        if (guildConfig.enabledCommands !== undefined) {
+            if (!Array.isArray(guildConfig.enabledCommands)) {
+                throw new Error(`服务器 ${guildId} 的 enabledCommands 必须是字符串数组`);
+            }
+
+            const invalidCommandNames = guildConfig.enabledCommands.filter(name => typeof name !== 'string' || !name.trim());
+            if (invalidCommandNames.length > 0) {
+                throw new Error(`服务器 ${guildId} 的 enabledCommands 只能包含非空字符串`);
+            }
         }
     }
 }
@@ -469,7 +486,7 @@ function resolveSyncGuild(config, requestedGuildId) {
 async function syncDiscordCommands(config, guildId) {
     const commandsPath = join(currentDir, 'commands');
     const commands = await loadCommandFiles(commandsPath);
-    const commandData = Array.from(commands.values()).map(command => command.data.toJSON());
+    const commandData = getEnabledCommandData(commands, config.guilds[guildId]);
 
     if (commandData.length === 0) {
         throw new Error('没有找到可同步的 Discord 指令');
@@ -488,6 +505,8 @@ async function syncDiscordCommands(config, guildId) {
             applicationId,
             commandCount: Array.isArray(deployedCommands) ? deployedCommands.length : commandData.length,
             localCommandCount: commandData.length,
+            totalCommandCount: commands.size,
+            unknownEnabledCommands: getUnknownEnabledCommands(commands, config.guilds[guildId]),
         };
     } catch (error) {
         if (error.status === 401 || error.code === 0) {
@@ -529,6 +548,8 @@ async function runConfigValidation(config) {
 
     const checks = [];
     const token = config.token;
+    const commandsPath = join(currentDir, 'commands');
+    const commands = await loadCommandFiles(commandsPath);
 
     if (!/^\s*[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\s*$/.test(token)) {
         checks.push({ name: 'Discord Token 格式', ok: false, error: 'Token 格式不像是标准 Discord Bot Token' });
@@ -547,6 +568,16 @@ async function runConfigValidation(config) {
 
     const discordTokenCheck = await validateDiscordToken(token);
     checks.push({ name: 'Discord Token 有效性', ok: discordTokenCheck.ok, error: discordTokenCheck.error });
+
+    for (const guildId of guildIds) {
+        const g = config.guilds[guildId];
+        const unknownEnabledCommands = getUnknownEnabledCommands(commands, g);
+        if (unknownEnabledCommands.length > 0) {
+            checks.push({ name: `服务器 ${guildId} 启用指令`, ok: false, error: `未知指令: ${unknownEnabledCommands.join('、')}` });
+        } else {
+            checks.push({ name: `服务器 ${guildId} 启用指令`, ok: true });
+        }
+    }
 
     for (const guildId of guildIds) {
         const guildCheck = await validateDiscordGuildAccess(token, guildId);
@@ -605,6 +636,21 @@ async function runConfigValidation(config) {
     }
 
     return { checks };
+}
+
+async function getCommandsPayload(config) {
+    const commandsPath = join(currentDir, 'commands');
+    const commands = await loadCommandFiles(commandsPath);
+    const guildSummaries = {};
+
+    for (const [guildId, guildConfig] of Object.entries(config?.guilds || {})) {
+        guildSummaries[guildId] = summarizeCommandSelection(commands, guildConfig);
+    }
+
+    return {
+        commands: getCommandInventory(commands),
+        guilds: guildSummaries,
+    };
 }
 
 async function ensureConfigStore() {
@@ -1004,6 +1050,18 @@ async function handleApi(req, res, pathname) {
         return;
     }
 
+    if (req.method === 'GET' && pathname === '/api/commands') {
+        const config = await readConfigIfExists();
+        if (!config) {
+            sendJson(res, 200, await getCommandsPayload({ guilds: {} }));
+            return;
+        }
+
+        validateConfig(config);
+        sendJson(res, 200, await getCommandsPayload(config));
+        return;
+    }
+
     if (req.method === 'POST' && pathname === '/api/commands/sync') {
         const body = await readRequestBody(req);
         const payload = JSON.parse(body || '{}');
@@ -1025,6 +1083,8 @@ async function handleApi(req, res, pathname) {
             guildId,
             commandCount: result.commandCount,
             localCommandCount: result.localCommandCount,
+            totalCommandCount: result.totalCommandCount,
+            unknownEnabledCommands: result.unknownEnabledCommands,
             commandsDeployed: true,
             status: await getStatus(),
         });
