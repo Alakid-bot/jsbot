@@ -5,6 +5,8 @@
     const discordIdPattern = /^\d{17,20}$/;
     const isOnlineMode = ['http:', 'https:'].includes(window.location.protocol);
     let statusTimer = null;
+    let availableCommands = [];
+    let unknownCommands = [];
 
     const fieldIds = [
         'token',
@@ -802,6 +804,11 @@
 
         const selfServiceRoles = collectSelfServiceRoles(warnings);
         const messageStats = collectMessageStats(warnings);
+        const enabledCommands = collectEnabledCommands();
+
+        if (unknownCommands.length > 0) {
+            warnings.push(`以下指令不在服务器可用列表中：${unknownCommands.join('、')}。`);
+        }
 
         const serverConfig = {
             serverType: trimValue('serverType') || 'Main server',
@@ -854,6 +861,10 @@
             autoDeleteChannels,
         };
 
+        if (enabledCommands) {
+            serverConfig.enabledCommands = enabledCommands;
+        }
+
         return {
             config: {
                 token,
@@ -899,7 +910,18 @@
         const selfServiceRoles = guildConfig.selfServiceRoles || {};
         const messageStats = guildConfig.messageStats || {};
 
+        const enabledCommands = guildConfig.enabledCommands || [];
+        const commandCount = enabledCommands.length;
+        const totalCommands = availableCommands.length;
+
         const items = [
+            {
+                title: 'App 指令',
+                value: commandCount > 0 ? `${commandCount} 个已启用` : '未配置',
+                detail: totalCommands > 0
+                    ? `共 ${totalCommands} 个可用指令${unknownCommands.length > 0 ? `，${unknownCommands.length} 个未知指令` : ''}`
+                    : '手动配置模式或离线模式',
+            },
             {
                 title: 'AI 答疑',
                 value: aiConfig.enabled ? `启用，${endpoints.length} 个接口` : '关闭',
@@ -1157,9 +1179,76 @@
         showLogin();
     }
 
+    function renderCommandSelector() {
+        const list = $('commandCheckList');
+        const dropdown = $('commandDropdown');
+        const manualField = $('manualCommandsField');
+        const status = $('commandLoadStatus');
+
+        if (availableCommands.length === 0) {
+            dropdown.hidden = true;
+            manualField.hidden = false;
+            if (!isOnlineMode) {
+                status.textContent = '离线模式：请手动填写指令名称';
+                status.className = 'command-status';
+            }
+            return;
+        }
+
+        dropdown.hidden = false;
+        manualField.hidden = true;
+        status.textContent = `已加载 ${availableCommands.length} 个指令`;
+        status.className = 'command-status ok';
+
+        list.innerHTML = availableCommands.map((cmd) => {
+            const name = typeof cmd === 'string' ? cmd : cmd.name;
+            const description = typeof cmd === 'string' ? '' : (cmd.description || '');
+            return `
+                <label class="command-check-item" title="${escapeHtml(description)}">
+                    <input type="checkbox" data-command-name="${escapeHtml(name)}" checked />
+                    <span>${escapeHtml(name)}${description ? `<small>${escapeHtml(description)}</small>` : ''}</span>
+                </label>
+            `;
+        }).join('');
+    }
+
+    async function fetchAvailableCommands() {
+        const status = $('commandLoadStatus');
+        try {
+            const payload = await apiRequest('/api/commands');
+            if (Array.isArray(payload.commands)) {
+                availableCommands = payload.commands;
+                renderCommandSelector();
+            } else {
+                throw new Error('返回格式不正确');
+            }
+        } catch (error) {
+            availableCommands = [];
+            renderCommandSelector();
+            status.textContent = `无法加载指令列表：${error.message}`;
+            status.className = 'command-status error';
+        }
+    }
+
+    function collectEnabledCommands() {
+        const list = $('commandCheckList');
+        const checkboxes = list.querySelectorAll('input[type="checkbox"]');
+        const manualCommands = parseList($('enabledCommandsManual').value);
+
+        if (checkboxes.length > 0) {
+            const enabled = Array.from(checkboxes)
+                .filter((cb) => cb.checked)
+                .map((cb) => cb.dataset.commandName);
+            return Array.from(new Set(enabled.concat(manualCommands)));
+        }
+
+        return manualCommands.length > 0 ? manualCommands : null;
+    }
+
     async function startOnlineConsole() {
         $('onlineActions').hidden = false;
         await refreshServerStatus();
+        await fetchAvailableCommands();
         await loadServerConfig();
         if (!statusTimer) {
             statusTimer = window.setInterval(refreshServerStatus, 10000);
@@ -1332,6 +1421,9 @@
         $('messageStatsQueryAllowUserIds').value = '';
         $('messageStatsAllowSelfQuery').checked = true;
         $('messageStatsTrackBots').checked = false;
+        unknownCommands = [];
+        $('enabledCommandsManual').value = '';
+        renderCommandSelector();
         ensureGroupRow();
         ensureEndpointRow();
         renderOutput();
@@ -1439,6 +1531,32 @@
         $('messageStatsAllowSelfQuery').checked = messageStats.allowSelfQuery !== false;
         $('messageStatsTrackBots').checked = Boolean(messageStats.trackBots);
 
+        const savedEnabledCommands = guildConfig.enabledCommands;
+        if (Array.isArray(savedEnabledCommands)) {
+            if (availableCommands.length > 0) {
+                const availableSet = new Set(availableCommands.map((cmd) => (typeof cmd === 'string' ? cmd : cmd.name)));
+                const checkboxes = $('commandCheckList').querySelectorAll('input[type="checkbox"]');
+                const enabledSet = new Set(savedEnabledCommands);
+                unknownCommands = savedEnabledCommands.filter((name) => !availableSet.has(name));
+                checkboxes.forEach((cb) => {
+                    cb.checked = enabledSet.has(cb.dataset.commandName);
+                });
+                if (unknownCommands.length > 0) {
+                    $('commandLoadStatus').textContent = `注意：${unknownCommands.length} 个指令在服务器上不存在`;
+                    $('commandLoadStatus').className = 'command-status warning';
+                    $('manualCommandsField').hidden = false;
+                    $('enabledCommandsManual').value = unknownCommands.join('\n');
+                }
+            } else {
+                $('enabledCommandsManual').value = savedEnabledCommands.join('\n');
+            }
+        } else if (availableCommands.length > 0) {
+            const checkboxes = $('commandCheckList').querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach((cb) => {
+                cb.checked = true;
+            });
+        }
+
         if (guildIds.length > 1) {
             showCopyStatus(`已导入第一个服务器配置：${guildId}。多服务器配置请分别生成后手动合并。`);
         } else {
@@ -1487,8 +1605,43 @@
 
         document.addEventListener('change', (event) => {
             if (event.target.closest('#configForm')) {
+                const commandCheckbox = event.target.closest('.command-check-item input[type="checkbox"]');
+                if (commandCheckbox) {
+                    $('commandsDeployed').checked = false;
+                }
                 renderOutput();
             }
+        });
+
+        $('toggleCommandDropdown').addEventListener('click', () => {
+            const dropdown = $('commandDropdown');
+            dropdown.hidden = !dropdown.hidden;
+            $('toggleCommandDropdown').textContent = dropdown.hidden ? '展开指令列表' : '收起指令列表';
+        });
+
+        $('selectAllCommands').addEventListener('click', () => {
+            $('commandCheckList').querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+                cb.checked = true;
+            });
+            $('commandsDeployed').checked = false;
+            renderOutput();
+        });
+
+        $('clearAllCommands').addEventListener('click', () => {
+            $('commandCheckList').querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+                cb.checked = false;
+            });
+            $('commandsDeployed').checked = false;
+            renderOutput();
+        });
+
+        $('enabledCommandsManual').addEventListener('input', () => {
+            if (availableCommands.length > 0) {
+                const availableNames = new Set(availableCommands.map((cmd) => (typeof cmd === 'string' ? cmd : cmd.name)));
+                unknownCommands = parseList($('enabledCommandsManual').value).filter((name) => !availableNames.has(name));
+            }
+            $('commandsDeployed').checked = false;
+            renderOutput();
         });
 
         $('toggleToken').addEventListener('click', () => {

@@ -751,7 +751,108 @@ button:active,
     line-height: 1.4;
 }
 
+.command-status-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.command-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.command-dropdown {
+    border: 1px solid var(--line);
+    border-radius: 1rem;
+    background: #fbfdff;
+    padding: 1rem;
+}
+
+.command-check-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 0.6rem;
+    max-height: 18rem;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.command-check-item {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    border: 1px solid rgba(88, 101, 242, 0.12);
+    border-radius: 0.75rem;
+    background: #ffffff;
+    padding: 0.6rem 0.8rem;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.command-check-item:hover {
+    border-color: rgba(88, 101, 242, 0.35);
+    background: #f8faff;
+}
+
+.command-check-item input {
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-top: 0.1rem;
+    accent-color: var(--primary);
+    flex-shrink: 0;
+}
+
+.command-check-item span {
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.command-check-item small {
+    display: block;
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
+    margin-top: 0.15rem;
+}
+
+.command-status {
+    font-size: 0.85rem;
+    font-weight: 800;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.6rem;
+    white-space: nowrap;
+}
+
+.command-status.ok {
+    background: #e9f8f1;
+    color: var(--success);
+}
+
+.command-status.error {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.command-status.warning {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
 @media (max-width: 760px) {
+    .command-status-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .command-check-list {
+        grid-template-columns: 1fr;
+    }
     .hero,
     .layout,
     .footer {
