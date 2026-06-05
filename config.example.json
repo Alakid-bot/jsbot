@@ -83,6 +83,47 @@
                     }
                 ]
             },
+            "activeRoles": {
+                "enabled": "boolean",
+                "panelTitle": "string (default: 活跃身份组领取)",
+                "panelDescription": "string (panel description shown above tiers)",
+                "mutuallyExclusive": "boolean (default: true)",
+                "trackBots": "boolean (default: false)",
+                "tiers": [
+                    {
+                        "id": "huangtao",
+                        "label": "黄桃",
+                        "roleId": "string (Discord role ID)",
+                        "minMessages": "number (minimum messages in last 7 days)",
+                        "emoji": "🍑",
+                        "description": "近 7 天发言达到指定条数"
+                    },
+                    {
+                        "id": "baitao",
+                        "label": "白桃",
+                        "roleId": "string (Discord role ID)",
+                        "minMessages": "number (minimum messages in last 7 days)",
+                        "emoji": "🍑",
+                        "description": "近 7 天发言达到指定条数"
+                    },
+                    {
+                        "id": "shuimitao",
+                        "label": "水蜜桃",
+                        "roleId": "string (Discord role ID)",
+                        "minMessages": "number (minimum messages in last 7 days)",
+                        "emoji": "🍑",
+                        "description": "近 7 天发言达到指定条数"
+                    },
+                    {
+                        "id": "pantao",
+                        "label": "蟠桃",
+                        "roleId": "string (Discord role ID)",
+                        "minMessages": "number (minimum messages in last 7 days)",
+                        "emoji": "🍑",
+                        "description": "近 7 天发言达到指定条数"
+                    }
+                ]
+            },
             "messageStats": {
                 "enabled": "boolean",
                 "queryAllowUserIds": [

@@ -45,6 +45,11 @@
         'motionTagId',
         'voteDurationHours',
         'selfServiceRolesEnabled',
+        'activeRolesEnabled',
+        'activeRolesPanelTitle',
+        'activeRolesPanelDescription',
+        'activeRolesMutuallyExclusive',
+        'activeRolesTrackBots',
         'messageStatsEnabled',
         'messageStatsQueryAllowUserIds',
         'messageStatsAllowSelfQuery',
@@ -270,7 +275,7 @@
     }
 
     function getGroupRows() {
-        return Array.from(document.querySelectorAll('.group-row'));
+        return Array.from(document.querySelectorAll('#selfServiceRolesGroups .group-row'));
     }
 
     function collectSelfServiceRoles(warnings) {
@@ -309,16 +314,70 @@
         return { enabled, groups };
     }
 
-    function collectMessageStats(warnings) {
-        const enabled = $('messageStatsEnabled').checked;
-        const queryAllowUserIds = parseList($('messageStatsQueryAllowUserIds').value);
-        warnAboutIds(warnings, '消息统计查询白名单用户 ID', queryAllowUserIds);
-        return {
-            enabled,
-            queryAllowUserIds,
-            allowSelfQuery: $('messageStatsAllowSelfQuery').checked,
-            trackBots: $('messageStatsTrackBots').checked,
-        };
+    function collectActiveRoles(warnings) {
+        const enabled = $('activeRolesEnabled').checked;
+        const panelTitle = trimValue('activeRolesPanelTitle') || '活跃身份组';
+        const panelDescription = trimValue('activeRolesPanelDescription') || '根据最近 7 天消息数自动领取';
+        const mutuallyExclusive = $('activeRolesMutuallyExclusive').checked;
+        const trackBots = $('activeRolesTrackBots').checked;
+
+        const tierIds = ['huangtao', 'baitao', 'shuimitao', 'pantao'];
+        const tierLabels = { huangtao: '黄桃', baitao: '白桃', shuimitao: '水蜜桃', pantao: '蟠桃' };
+        const tiers = [];
+        const thresholds = [];
+
+        tierIds.forEach((tierId) => {
+            const row = document.querySelector(`.group-row[data-tier-id="${tierId}"]`);
+            if (!row) return;
+            const roleId = row.querySelector('.tier-roleId').value.trim();
+            const minMessages = Number(row.querySelector('.tier-minMessages').value.trim());
+            const emoji = row.querySelector('.tier-emoji').value.trim();
+            const description = row.querySelector('.tier-description').value.trim();
+
+            if (enabled) {
+                if (!roleId) {
+                    warnings.push(`活跃身份组「${tierLabels[tierId]}」缺少角色 ID。`);
+                } else if (!discordIdPattern.test(roleId)) {
+                    warnings.push(`活跃身份组「${tierLabels[tierId]}」的角色 ID「${roleId}」不像标准 Discord ID。`);
+                }
+                if (!Number.isFinite(minMessages) || minMessages < 0) {
+                    warnings.push(`活跃身份组「${tierLabels[tierId]}」的最低消息数应为非负数。`);
+                }
+            }
+
+            tiers.push({
+                id: tierId,
+                label: tierLabels[tierId],
+                roleId: roleId || null,
+                minMessages: Number.isFinite(minMessages) ? minMessages : 0,
+                emoji: emoji || undefined,
+                description: description || undefined,
+            });
+
+            if (Number.isFinite(minMessages)) {
+                thresholds.push({ tierId, label: tierLabels[tierId], minMessages });
+            }
+        });
+
+        const sorted = thresholds.slice().sort((a, b) => a.minMessages - b.minMessages);
+        for (let i = 0; i < sorted.length - 1; i += 1) {
+            if (sorted[i].minMessages === sorted[i + 1].minMessages) {
+                warnings.push(`活跃身份组「${sorted[i].label}」与「${sorted[i + 1].label}」的最低消息数重复（${sorted[i].minMessages}）。`);
+            }
+        }
+
+        const tierOrder = ['huangtao', 'baitao', 'shuimitao', 'pantao'];
+        const orderedThresholds = tierOrder
+            .map((id) => tiers.find((t) => t.id === id))
+            .filter((t) => t && Number.isFinite(t.minMessages))
+            .map((t) => t.minMessages);
+        for (let i = 0; i < orderedThresholds.length - 1; i += 1) {
+            if (orderedThresholds[i] > orderedThresholds[i + 1]) {
+                warnings.push(`活跃身份组阈值未按等级递增：${tierLabels[tierOrder[i]]}(${orderedThresholds[i]}) > ${tierLabels[tierOrder[i + 1]]}(${orderedThresholds[i + 1]})。建议从低到高设置。`);
+            }
+        }
+
+        return { enabled, panelTitle, panelDescription, mutuallyExclusive, trackBots, tiers };
     }
 
     function makeEndpointRow(endpoint = {}) {
@@ -710,6 +769,32 @@
             });
         }
 
+        if ($('activeRolesEnabled').checked) {
+            const tierIds = ['huangtao', 'baitao', 'shuimitao', 'pantao'];
+            const tierLabels = { huangtao: '黄桃', baitao: '白桃', shuimitao: '水蜜桃', pantao: '蟠桃' };
+            let validCount = 0;
+            tierIds.forEach((tierId) => {
+                const row = document.querySelector(`.group-row[data-tier-id="${tierId}"]`);
+                if (!row) return;
+                const roleId = row.querySelector('.tier-roleId').value.trim();
+                const minMessages = Number(row.querySelector('.tier-minMessages').value.trim());
+                if (!roleId) {
+                    errors.push(`已启用活跃身份组，「${tierLabels[tierId]}」缺少角色 ID。`);
+                } else if (!discordIdPattern.test(roleId)) {
+                    errors.push(`活跃身份组「${tierLabels[tierId]}」的角色 ID「${roleId}」不像标准 Discord ID。`);
+                }
+                if (!Number.isFinite(minMessages) || minMessages < 0) {
+                    errors.push(`活跃身份组「${tierLabels[tierId]}」的最低消息数必须为非负数。`);
+                }
+                if (roleId && Number.isFinite(minMessages) && minMessages >= 0) {
+                    validCount += 1;
+                }
+            });
+            if (validCount === 0) {
+                errors.push('已启用活跃身份组，但四个等级均无效。请至少填写一个等级的角色 ID 和最低消息数。');
+            }
+        }
+
         return errors;
     }
 
@@ -804,6 +889,7 @@
 
         const selfServiceRoles = collectSelfServiceRoles(warnings);
         const messageStats = collectMessageStats(warnings);
+        const activeRoles = collectActiveRoles(warnings);
         const enabledCommands = collectEnabledCommands();
 
         if (unknownCommands.length > 0) {
@@ -858,6 +944,7 @@
             },
             selfServiceRoles,
             messageStats,
+            activeRoles,
             autoDeleteChannels,
         };
 
@@ -953,6 +1040,18 @@
                 detail: messageStats.enabled
                     ? `白名单 ${(messageStats.queryAllowUserIds || []).length} 人，${messageStats.allowSelfQuery ? '允许自助查询' : '不允许自助查询'}`
                     : '用户可私密查自己，白名单可查任意用户',
+            },
+            {
+                title: '活跃身份组',
+                value: (guildConfig.activeRoles?.enabled) ? '启用' : '关闭',
+                detail: (() => {
+                    const ar = guildConfig.activeRoles || {};
+                    if (!ar.enabled) return '按最近 7 天消息数自动发放身份组';
+                    const tiers = (ar.tiers || []).filter((t) => t.roleId);
+                    const tierLabels = { huangtao: '黄桃', baitao: '白桃', shuimitao: '水蜜桃', pantao: '蟠桃' };
+                    const tierText = tiers.map((t) => `${tierLabels[t.id]}(${t.minMessages})`).join('、');
+                    return `${tierText || '未配置等级'} · ${ar.mutuallyExclusive !== false ? '互斥' : '可共存'}`;
+                })(),
             },
             {
                 title: '运行监控',
@@ -1421,6 +1520,17 @@
         $('messageStatsQueryAllowUserIds').value = '';
         $('messageStatsAllowSelfQuery').checked = true;
         $('messageStatsTrackBots').checked = false;
+        $('activeRolesEnabled').checked = false;
+        $('activeRolesPanelTitle').value = '';
+        $('activeRolesPanelDescription').value = '';
+        $('activeRolesMutuallyExclusive').checked = true;
+        $('activeRolesTrackBots').checked = false;
+        document.querySelectorAll('.group-row[data-tier-id]').forEach((row) => {
+            row.querySelector('.tier-roleId').value = '';
+            row.querySelector('.tier-minMessages').value = '';
+            row.querySelector('.tier-emoji').value = '';
+            row.querySelector('.tier-description').value = '';
+        });
         unknownCommands = [];
         $('enabledCommandsManual').value = '';
         renderCommandSelector();
@@ -1530,6 +1640,31 @@
         setTextList('messageStatsQueryAllowUserIds', messageStats.queryAllowUserIds);
         $('messageStatsAllowSelfQuery').checked = messageStats.allowSelfQuery !== false;
         $('messageStatsTrackBots').checked = Boolean(messageStats.trackBots);
+
+        const activeRoles = guildConfig.activeRoles || {};
+        $('activeRolesEnabled').checked = Boolean(activeRoles.enabled);
+        $('activeRolesPanelTitle').value = activeRoles.panelTitle || '';
+        $('activeRolesPanelDescription').value = activeRoles.panelDescription || '';
+        $('activeRolesMutuallyExclusive').checked = activeRoles.mutuallyExclusive !== false;
+        $('activeRolesTrackBots').checked = Boolean(activeRoles.trackBots);
+
+        const defaultTiers = [
+            { id: 'huangtao', roleId: null, minMessages: 10, emoji: '🍑', description: '近 7 天发言达到 10 条' },
+            { id: 'baitao', roleId: null, minMessages: 30, emoji: '🍑', description: '近 7 天发言达到 30 条' },
+            { id: 'shuimitao', roleId: null, minMessages: 60, emoji: '🍑', description: '近 7 天发言达到 60 条' },
+            { id: 'pantao', roleId: null, minMessages: 100, emoji: '🍑', description: '近 7 天发言达到 100 条' },
+        ];
+        const existingTiers = Array.isArray(activeRoles.tiers) ? activeRoles.tiers : [];
+        const tierMap = new Map(existingTiers.map((t) => [t.id, t]));
+        const tiers = defaultTiers.map((t) => ({ ...t, ...(tierMap.get(t.id) || {}) }));
+        tiers.forEach((tier) => {
+            const row = document.querySelector(`.group-row[data-tier-id="${tier.id}"]`);
+            if (!row) return;
+            row.querySelector('.tier-roleId').value = tier.roleId || '';
+            row.querySelector('.tier-minMessages').value = tier.minMessages ?? '';
+            row.querySelector('.tier-emoji').value = tier.emoji || '';
+            row.querySelector('.tier-description').value = tier.description || '';
+        });
 
         const savedEnabledCommands = guildConfig.enabledCommands;
         if (Array.isArray(savedEnabledCommands)) {

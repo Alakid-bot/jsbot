@@ -334,6 +334,72 @@
                     <div class="section-heading">
                         <span class="step">10</span>
                         <div>
+                            <h2>活跃身份组</h2>
+                            <p class="section-tip">按最近 7 天消息数自动发放/回收身份组。用户可通过 Discord 领取面板自助领取或取消。</p>
+                        </div>
+                    </div>
+
+                    <label class="switch-field inline">
+                        <input id="activeRolesEnabled" type="checkbox" />
+                        <span><strong>启用活跃身份组</strong><small>开启后配置面板标题、描述和四个固定等级。</small></span>
+                    </label>
+
+                    <div class="grid two">
+                        <label class="field">
+                            <span>面板标题</span>
+                            <input id="activeRolesPanelTitle" type="text" placeholder="活跃身份组" />
+                        </label>
+                        <label class="field">
+                            <span>面板描述</span>
+                            <input id="activeRolesPanelDescription" type="text" placeholder="根据最近 7 天消息数自动领取" />
+                        </label>
+                        <label class="switch-field">
+                            <input id="activeRolesMutuallyExclusive" type="checkbox" checked />
+                            <span><strong>等级互斥</strong><small>开启时，用户只保留最高等级；关闭时可同时持有多个等级。</small></span>
+                        </label>
+                        <label class="switch-field">
+                            <input id="activeRolesTrackBots" type="checkbox" />
+                            <span><strong>统计 Bot 消息</strong><small>是否将 Bot 账号计入消息统计。</small></span>
+                        </label>
+                    </div>
+
+                    <div id="activeRolesTiers" class="group-list">
+                        <div class="group-row" data-tier-id="huangtao">
+                            <label class="field"><span>等级 <em>黄桃</em></span><input class="tier-roleId" type="text" inputmode="numeric" placeholder="角色 ID" /></label>
+                            <label class="field"><span>最低消息数 <em>必填</em></span><input class="tier-minMessages" type="number" min="0" placeholder="0" /></label>
+                            <label class="field"><span>Emoji</span><input class="tier-emoji" type="text" placeholder="例如 🍑" /></label>
+                            <label class="field"><span>描述</span><input class="tier-description" type="text" placeholder="可选说明" /></label>
+                        </div>
+                        <div class="group-row" data-tier-id="baitao">
+                            <label class="field"><span>等级 <em>白桃</em></span><input class="tier-roleId" type="text" inputmode="numeric" placeholder="角色 ID" /></label>
+                            <label class="field"><span>最低消息数 <em>必填</em></span><input class="tier-minMessages" type="number" min="0" placeholder="0" /></label>
+                            <label class="field"><span>Emoji</span><input class="tier-emoji" type="text" placeholder="例如 🍑" /></label>
+                            <label class="field"><span>描述</span><input class="tier-description" type="text" placeholder="可选说明" /></label>
+                        </div>
+                        <div class="group-row" data-tier-id="shuimitao">
+                            <label class="field"><span>等级 <em>水蜜桃</em></span><input class="tier-roleId" type="text" inputmode="numeric" placeholder="角色 ID" /></label>
+                            <label class="field"><span>最低消息数 <em>必填</em></span><input class="tier-minMessages" type="number" min="0" placeholder="0" /></label>
+                            <label class="field"><span>Emoji</span><input class="tier-emoji" type="text" placeholder="例如 🍑" /></label>
+                            <label class="field"><span>描述</span><input class="tier-description" type="text" placeholder="可选说明" /></label>
+                        </div>
+                        <div class="group-row" data-tier-id="pantao">
+                            <label class="field"><span>等级 <em>蟠桃</em></span><input class="tier-roleId" type="text" inputmode="numeric" placeholder="角色 ID" /></label>
+                            <label class="field"><span>最低消息数 <em>必填</em></span><input class="tier-minMessages" type="number" min="0" placeholder="0" /></label>
+                            <label class="field"><span>Emoji</span><input class="tier-emoji" type="text" placeholder="例如 🍑" /></label>
+                            <label class="field"><span>描述</span><input class="tier-description" type="text" placeholder="可选说明" /></label>
+                        </div>
+                    </div>
+
+                    <div class="hint-card">
+                        <strong>等级说明</strong>
+                        <small>四个等级固定为 黄桃、白桃、水蜜桃、蟠桃。消息数阈值应递增（例如 0、30、100、300）。互斥模式下 Bot 会自动保留最高等级。</small>
+                    </div>
+                </section>
+
+                <section class="section-card">
+                    <div class="section-heading">
+                        <span class="step">11</span>
+                        <div>
                             <h2>运行监控</h2>
                             <p class="section-tip">用于展示 Bot 在线状态、Ping、运行时间和被监控角色人数。监控频道可留空，Bot 命令也可后续创建/更新。</p>
                         </div>
@@ -354,7 +420,7 @@
 
                 <section class="section-card actions-card">
                     <div class="section-heading compact">
-                        <span class="step">11</span>
+                        <span class="step">12</span>
                         <div>
                             <h2>导入 / 重置</h2>
                             <p>可以导入已有 <code>config.json</code> 继续编辑。</p>
@@ -371,7 +437,7 @@
 
                 <section id="onlineActions" class="section-card actions-card" hidden>
                     <div class="section-heading compact">
-                        <span class="step">12</span>
+                        <span class="step">13</span>
                         <div>
                             <h2>在线保存 / Bot 控制</h2>
                             <p>在 Zeabur 域名访问时，配置会保存到 PostgreSQL；<code>data/config.json</code> 仅作为 Bot 启动运行副本。</p>
