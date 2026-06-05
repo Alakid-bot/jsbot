@@ -1,6 +1,6 @@
 # Zeabur 部署模板
 
-本目录提供在 Zeabur 部署该 Discord Bot 的模板。容器会同时启动一个受密码保护的 Web 配置页，用于在 Zeabur 域名里填写 Discord Token、服务器 ID、频道/角色 ID、AI SK / OpenAI 兼容接口、投票系统、自助身份组、发言统计查询权限、运行监控等配置；保存后同一进程会启动或重启 Bot。
+本目录提供在 Zeabur 部署该 Discord Bot 的模板。容器会同时启动一个受密码保护的 Web 配置页，用于在 Zeabur 域名里填写 Discord Token、服务器 ID、频道/角色 ID、AI SK / OpenAI 兼容接口、投票系统、自助身份组、活跃身份组、发言统计查询权限、运行监控等配置；保存后同一进程会启动或重启 Bot。
 
 ## 文件说明
 
@@ -70,7 +70,7 @@ JSBOT_WEB_PASSWORD=CHANGE_ME_16_CHARS
 2. 页面会先显示一个只有密码输入框的登录界面。
 3. 密码使用 Zeabur 部署说明中的 `Web configuration password`，也就是环境变量 `PASSWORD` / `JSBOT_WEB_PASSWORD` 的同一个值；如果没有设置这些变量，则查看 Zeabur 日志里的自动生成密码。
 4. 输入正确密码并点击“进入控制台”。
-5. 填写 Discord Token、Guild ID、频道/角色 ID、AI 答疑接口/SK/模型、投票系统、自助身份组、发言统计查询权限、运行监控等配置。
+5. 填写 Discord Token、Guild ID、频道/角色 ID、AI 答疑接口/SK/模型、投票系统、自助身份组、活跃身份组、发言统计查询权限、运行监控等配置。
 6. 点击“保存配置并重启 Bot”。配置会写入 PostgreSQL，`/app/data/config.json` 只作为 Bot 启动时生成的运行副本。
 7. 如果 Discord 的 `/` App 指令列表没有出现新命令，使用管理员账号执行 `/同步指令`。
 
@@ -106,16 +106,17 @@ Zeabur 部署后访问 Bot 服务域名，即可看到配置页。页面支持�
 - 读取服务器已有 `config.json`
 - 填写或修改 Discord Token、服务器 ID、频道/角色 ID
 - 填写 FastGPT 或 OpenAI 兼容接口 URL、SK/API Key、模型名
-- 调整 AI 答疑、社区投票系统、自助身份组、发言统计查询权限和运行监控配置
+- 调整 AI 答疑、社区投票系统、自助身份组、活跃身份组、发言统计查询权限和运行监控配置
 - 生成并预览 `config.json` / `JSBOT_CONFIG_JSON_BASE64`
 - 保存到 PostgreSQL，并生成 `/app/data/config.json` 运行副本
 - 保存后自动启动或重启 Bot
 - 查看 Bot 是否运行、PID、配置路径等状态
 
-自助身份组和发言统计对应两个 App 指令：
+自助身份组、活跃身份组和发言统计对应这些 App 指令：
 
-- `/admin_self_role_panel`：管理员发送身份组领取面板，用户点击按钮领取或取消配置好的身份组。
-- `/user_message_stats`：普通用户私密查询自己的发言数，白名单 DCID 可私密查询任意用户。
+- `/发送自助身份组面板`：管理员发送普通身份组领取面板，用户点击按钮领取或取消配置好的身份组。
+- `/发送活跃身份组面板`：管理员发送活跃身份组领取面板，用户点击按钮后按近 7 天发言数领取或更新黄桃/白桃/水蜜桃/蟠桃。
+- `/发言统计`：普通用户私密查询自己的近 7 天发言数，白名单 DCID 可私密查询任意用户。
 
 安全注意：
 
