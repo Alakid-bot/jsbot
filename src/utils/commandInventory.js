@@ -1,3 +1,5 @@
+export const alwaysEnabledCommandNames = new Set(['同步指令']);
+
 function getCommandName(command) {
     return command?.data?.name || command?.name || null;
 }
@@ -19,6 +21,10 @@ function getEnabledCommandSet(guildConfig) {
 }
 
 export function isCommandEnabled(guildConfig, commandName) {
+    if (alwaysEnabledCommandNames.has(commandName)) {
+        return true;
+    }
+
     const enabledCommands = getEnabledCommandSet(guildConfig);
     return enabledCommands === null || enabledCommands.has(commandName);
 }
@@ -29,7 +35,7 @@ export function filterCommandsForGuild(commands, guildConfig) {
         return new Map(commands);
     }
 
-    return new Map([...commands].filter(([name]) => enabledCommands.has(name)));
+    return new Map([...commands].filter(([name]) => alwaysEnabledCommandNames.has(name) || enabledCommands.has(name)));
 }
 
 export function serializeCommandData(commands) {
@@ -55,7 +61,9 @@ export function getUnknownEnabledCommands(commands, guildConfig) {
     }
 
     const loadedNames = new Set([...commands.keys()]);
-    return [...enabledCommands].filter(name => !loadedNames.has(name)).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+    return [...enabledCommands]
+        .filter(name => !alwaysEnabledCommandNames.has(name) && !loadedNames.has(name))
+        .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
 }
 
 export function summarizeCommandSelection(commands, guildConfig) {

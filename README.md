@@ -151,9 +151,9 @@ JSBOT_CONFIG_PATH=/app/data/config.json
 NODE_ENV=production
 ```
 
-一键部署模板会生成随机密码并同时写入 `PASSWORD` 和 `JSBOT_WEB_PASSWORD`，Zeabur 的 `Web configuration password` 部署说明会显示同一个值，方便复制。配置页打开后会先显示独立登录页，只有一个密码输入框；输入 Zeabur 显示的这个密码后进入配置控制台。如果没有设置 `PASSWORD` 或 `JSBOT_WEB_PASSWORD`，容器启动时会自动生成一个 16 位 fallback 密码，保存到 `/app/data/web-password.txt`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后给 `jsbot` 服务绑定 Zeabur 域名，打开域名并输入密码，然后在网页中填写 Discord Token、服务器 ID、频道/角色 ID、AI SK / OpenAI 兼容接口、投票系统、自助身份组、活跃身份组、发言统计查询权限和运行监控等信息，点击“保存配置并重启 Bot”。配置会保存到 PostgreSQL，`/app/data/config.json` 只作为 Bot 启动时生成的运行副本。
+一键部署模板会生成随机密码并同时写入 `PASSWORD` 和 `JSBOT_WEB_PASSWORD`，Zeabur 的 `Web configuration password` 部署说明会显示同一个值，方便复制。配置页打开后会先显示独立登录页，只有一个密码输入框；输入 Zeabur 显示的这个密码后进入配置控制台。如果没有设置 `PASSWORD` 或 `JSBOT_WEB_PASSWORD`，容器启动时会自动生成一个 16 位 fallback 密码，保存到 `/app/data/web-password.txt`，并打印在 Zeabur 的 `jsbot` 服务日志里。部署后给 `jsbot` 服务绑定 Zeabur 域名，打开域名并输入密码，然后在网页中填写 Discord Token、服务器 ID、频道/角色 ID、AI SK / OpenAI 兼容接口、投票系统、自助身份组、发言统计查询权限和运行监控等信息，点击“保存配置并重启 Bot”。配置会保存到 PostgreSQL，`/app/data/config.json` 只作为 Bot 启动时生成的运行副本。
 
-自助身份组、活跃身份组和发言统计会注册为 Discord App 指令：管理员使用 `/发送自助身份组面板` 在频道发送普通身份组领取面板，使用 `/发送活跃身份组面板` 发送按近 7 天发言数领取黄桃/白桃/水蜜桃/蟠桃的面板；用户使用 `/发言统计` 私密查询自己的发言数，白名单 DCID 可查询任意用户。部署更新后如果 Discord 的 `/` 指令列表里还没出现新命令，请先用管理员账号执行 `/同步指令`。
+自助身份组和发言统计会注册为 Discord App 指令：管理员使用 `/发送自助身份组面板` 在频道发送身份组领取面板；每个自助身份组都可以设置可选的近 7 天最低发言数门槛，用于实现黄桃、白桃等活跃身份组。用户使用 `/发言统计` 私密查询自己的发言数，白名单 DCID 可查询任意用户。部署更新后如果 Discord 的 `/` 指令列表仍有旧命令或没有出现新命令，请先用管理员账号执行 `/同步指令`，或在网页控制台点击“同步 Discord 指令”。
 
 如果你想预置初始配置，也可以直接用浏览器打开 `deploy/config-wizard/index.html`，填写信息后复制页面生成的 `JSBOT_CONFIG_JSON_BASE64` 到 Zeabur 环境变量。
 

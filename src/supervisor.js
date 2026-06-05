@@ -629,19 +629,13 @@ async function runConfigValidation(config) {
             const groups = g.selfServiceRoles.groups || [];
             if (!groups.length) {
                 checks.push({ name: '自助身份组', ok: false, error: '已启用自助身份组，但没有配置分组' });
+            } else if (groups.some(group => {
+                const minMessages = Number(group?.activityRequirement?.minMessages);
+                return group?.activityRequirement && (!Number.isInteger(minMessages) || minMessages < 0);
+            })) {
+                checks.push({ name: '自助身份组', ok: false, error: '自助身份组活跃度门槛必须是非负整数' });
             } else {
                 checks.push({ name: '自助身份组', ok: true });
-            }
-        }
-        if (g.activeRoles?.enabled) {
-            const tiers = Array.isArray(g.activeRoles.tiers) ? g.activeRoles.tiers : [];
-            const invalidTiers = tiers.filter(tier => !tier?.id || !tier?.label || !tier?.roleId || !Number.isFinite(Number(tier?.minMessages)));
-            if (!tiers.length) {
-                checks.push({ name: '活跃身份组', ok: false, error: '已启用活跃身份组，但没有配置档位' });
-            } else if (invalidTiers.length > 0) {
-                checks.push({ name: '活跃身份组', ok: false, error: '活跃身份组档位缺少 ID、名称、身份组 ID 或有效发言门槛' });
-            } else {
-                checks.push({ name: '活跃身份组', ok: true });
             }
         }
     }

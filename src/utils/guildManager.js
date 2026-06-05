@@ -1,5 +1,28 @@
 import { logTime } from './logger.js';
 
+function migrateActiveRolesToSelfServiceRoles(guildConfig) {
+    const selfServiceGroups = Array.isArray(guildConfig.selfServiceRoles?.groups)
+        ? guildConfig.selfServiceRoles.groups
+        : [];
+    if (selfServiceGroups.length > 0 || !Array.isArray(guildConfig.activeRoles?.tiers)) {
+        return selfServiceGroups;
+    }
+
+    return guildConfig.activeRoles.tiers
+        .filter(tier => tier?.roleId)
+        .map(tier => ({
+            id: tier.id || tier.label || tier.roleId,
+            label: tier.label || tier.id || '活跃身份组',
+            description: tier.description || '',
+            emoji: tier.emoji || '',
+            roleId: tier.roleId,
+            mode: 'toggle',
+            activityRequirement: Number.isInteger(Number(tier.minMessages)) && Number(tier.minMessages) >= 0
+                ? { minMessages: Number(tier.minMessages) }
+                : undefined,
+        }));
+}
+
 export class GuildManager {
     constructor() {
         this.guilds = new Map();
@@ -18,6 +41,7 @@ export class GuildManager {
 
         for (const [guildId, guildConfig] of Object.entries(config.guilds)) {
             const automationConfig = guildConfig.automation || {};
+            const selfServiceRoleGroups = migrateActiveRolesToSelfServiceRoles(guildConfig);
 
             // 验证必要的配置字段
             this.validateGuildConfig(guildId, guildConfig);
@@ -81,25 +105,8 @@ export class GuildManager {
                     roleDisplayName: guildConfig.monitor?.roleDisplayName ?? '角色',
                 },
                 selfServiceRoles: {
-                    enabled: guildConfig.selfServiceRoles?.enabled ?? false,
-                    groups: Array.isArray(guildConfig.selfServiceRoles?.groups)
-                        ? guildConfig.selfServiceRoles.groups
-                        : [],
-                },
-                activeRoles: {
-                    enabled: guildConfig.activeRoles?.enabled ?? false,
-                    panelTitle: guildConfig.activeRoles?.panelTitle || '活跃身份组领取',
-                    panelDescription: guildConfig.activeRoles?.panelDescription || '点击下方按钮，根据你近 7 天的发言数领取可获得的最高活跃身份组。',
-                    mutuallyExclusive: guildConfig.activeRoles?.mutuallyExclusive ?? true,
-                    trackBots: guildConfig.activeRoles?.trackBots ?? false,
-                    tiers: Array.isArray(guildConfig.activeRoles?.tiers)
-                        ? guildConfig.activeRoles.tiers
-                        : [
-                            { id: 'huangtao', label: '黄桃', roleId: null, minMessages: 10, emoji: '🍑', description: '近 7 天发言达到 10 条' },
-                            { id: 'baitao', label: '白桃', roleId: null, minMessages: 30, emoji: '🍑', description: '近 7 天发言达到 30 条' },
-                            { id: 'shuimitao', label: '水蜜桃', roleId: null, minMessages: 60, emoji: '🍑', description: '近 7 天发言达到 60 条' },
-                            { id: 'pantao', label: '蟠桃', roleId: null, minMessages: 100, emoji: '🍑', description: '近 7 天发言达到 100 条' },
-                        ],
+                    enabled: guildConfig.selfServiceRoles?.enabled ?? guildConfig.activeRoles?.enabled ?? false,
+                    groups: selfServiceRoleGroups,
                 },
                 messageStats: {
                     enabled: guildConfig.messageStats?.enabled ?? false,
@@ -256,6 +263,19 @@ export class GuildManager {
                 }
             }
 
+            if (guildConfig.selfServiceRoles?.enabled || guildConfig.activeRoles?.enabled) {
+                const groups = migrateActiveRolesToSelfServiceRoles(guildConfig);
+                if (groups.length === 0) {
+                    errors.push('启用自助身份组但缺少 selfServiceRoles.groups 配置');
+                }
+                groups.forEach((group, index) => {
+                    const minMessages = group?.activityRequirement?.minMessages;
+                    if (minMessages !== undefined && (!Number.isInteger(Number(minMessages)) || Number(minMessages) < 0)) {
+                        errors.push(`selfServiceRoles.groups[${index}].activityRequirement.minMessages 必须是非负整数`);
+                    }
+                });
+            }
+
             // 监控系统验证
             if (guildConfig.monitor?.enabled) {
                 if (!guildConfig.monitor.roleMonitorCategoryId) {
@@ -266,20 +286,6 @@ export class GuildManager {
                 }
             }
 
-        }
-
-        if (guildConfig.activeRoles?.enabled) {
-            const tiers = Array.isArray(guildConfig.activeRoles.tiers) ? guildConfig.activeRoles.tiers : [];
-            if (tiers.length === 0) {
-                errors.push('启用活跃身份组但缺少 activeRoles.tiers 配置');
-            }
-            tiers.forEach((tier, index) => {
-                const label = `activeRoles.tiers[${index}]`;
-                if (!tier?.id) errors.push(`${label} 缺少 id`);
-                if (!tier?.label) errors.push(`${label} 缺少 label`);
-                if (!tier?.roleId) errors.push(`${label} 缺少 roleId`);
-                if (!Number.isFinite(Number(tier?.minMessages))) errors.push(`${label} 缺少有效 minMessages`);
-            });
         }
 
         // 自动化系统验证

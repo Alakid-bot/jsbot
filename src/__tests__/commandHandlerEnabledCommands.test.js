@@ -17,10 +17,10 @@ jest.unstable_mockModule('../utils/cooldownManager.js', () => ({
 
 const { handleCommand } = await import('../handlers/commands.js');
 
-function createInteraction(guildConfig) {
+function createInteraction(guildConfig, commandName = '测试指令') {
     const command = {
         cooldown: 5,
-        data: { name: '测试指令' },
+        data: { name: commandName },
         execute: jest.fn(),
         shouldDefer: false,
     };
@@ -29,12 +29,12 @@ function createInteraction(guildConfig) {
     return {
         command,
         interaction: {
-            commandName: '测试指令',
+            commandName,
             guildId: '123456789012345678',
             user: { tag: 'tester' },
             channel: { id: 'channel-id', name: 'channel-name' },
             client: {
-                commands: new Map([['测试指令', command]]),
+                commands: new Map([[commandName, command]]),
                 guildManager: {
                     getGuildConfig: jest.fn(() => guildConfig),
                 },
@@ -68,6 +68,16 @@ describe('handleCommand enabledCommands guard', () => {
 
     test('keeps legacy configs without enabledCommands fully enabled', async () => {
         const { command, interaction } = createInteraction({});
+
+        await handleCommand(interaction);
+
+        expect(checkCooldown).toHaveBeenCalledTimes(1);
+        expect(addToQueue).toHaveBeenCalledTimes(1);
+        expect(command.execute).toHaveBeenCalledTimes(1);
+    });
+
+    test('allows sync command even when command selection is empty', async () => {
+        const { command, interaction } = createInteraction({ enabledCommands: [] }, '同步指令');
 
         await handleCommand(interaction);
 

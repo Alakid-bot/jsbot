@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { join } from 'node:path';
 import {
+    alwaysEnabledCommandNames,
     filterCommandsForGuild,
     getCommandInventory,
     getEnabledCommandData,
@@ -55,17 +56,24 @@ describe('Discord command inventory', () => {
 
     test('filters registration data to configured command names only', async () => {
         const commands = await loadCommandFiles(commandsPath);
-        const [firstCommandName, secondCommandName] = [...commands.keys()];
+        const [firstCommandName, secondCommandName] = [...commands.keys()].filter(name => !alwaysEnabledCommandNames.has(name));
         const guildConfig = { enabledCommands: [firstCommandName, '不存在的指令'] };
         const filtered = filterCommandsForGuild(commands, guildConfig);
         const enabledData = getEnabledCommandData(commands, guildConfig);
+        const expectedNames = [
+            firstCommandName,
+            ...[...alwaysEnabledCommandNames].filter(name => commands.has(name)),
+        ];
 
-        expect(filtered.size).toBe(1);
+        expect(filtered.size).toBe(expectedNames.length);
         expect(filtered.has(firstCommandName)).toBe(true);
         expect(filtered.has(secondCommandName)).toBe(false);
-        expect(enabledData.map(command => command.name)).toEqual([firstCommandName]);
+        expect(enabledData.map(command => command.name)).toEqual(expect.arrayContaining(expectedNames));
         expect(isCommandEnabled(guildConfig, firstCommandName)).toBe(true);
         expect(isCommandEnabled(guildConfig, secondCommandName)).toBe(false);
+        for (const commandName of alwaysEnabledCommandNames) {
+            expect(isCommandEnabled({ enabledCommands: [] }, commandName)).toBe(true);
+        }
     });
 
     test('reports unknown enabled command names without registering them', async () => {
@@ -76,7 +84,9 @@ describe('Discord command inventory', () => {
 
         expect(getUnknownEnabledCommands(commands, guildConfig)).toEqual(['不存在的指令']);
         expect(summary.mode).toBe('selected');
-        expect(summary.enabledCommandCount).toBe(1);
+        expect(summary.enabledCommandCount).toBe(
+            1 + [...alwaysEnabledCommandNames].filter(name => commands.has(name)).length,
+        );
         expect(summary.totalCommandCount).toBe(commands.size);
         expect(summary.unknownEnabledCommands).toEqual(['不存在的指令']);
     });

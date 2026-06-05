@@ -1,8 +1,11 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { logTime } from '../../utils/logger.js';
+import { messageStatsService } from '../user/messageStatsService.js';
 
 const SELF_ROLE_PREFIX = 'self_role:';
 const MAX_BUTTONS_PER_ROW = 5;
+const activityStatsCache = new Map();
+const ACTIVITY_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function getEnabledGroups(guildConfig) {
     const config = guildConfig?.selfServiceRoles || {};
@@ -16,6 +19,27 @@ function getButtonStyle(mode) {
     if (mode === 'remove') return ButtonStyle.Danger;
     if (mode === 'grant') return ButtonStyle.Success;
     return ButtonStyle.Primary;
+}
+
+function getActivityRequirement(group) {
+    const minMessages = Number(group?.activityRequirement?.minMessages);
+    if (!Number.isInteger(minMessages) || minMessages < 0) {
+        return null;
+    }
+    return { minMessages };
+}
+
+async function getRecentStatsWithCache(interaction, userId, statsConfig) {
+    const trackBots = statsConfig.trackBots === true;
+    const cacheKey = `${interaction.guildId}:${userId}:${trackBots ? 'bots' : 'users'}`;
+    const cached = activityStatsCache.get(cacheKey);
+    if (cached && Date.now() - cached.createdAt < ACTIVITY_CACHE_TTL_MS) {
+        return cached.stats;
+    }
+
+    const stats = await messageStatsService.getRecentUserStats(interaction, userId, { trackBots });
+    activityStatsCache.set(cacheKey, { createdAt: Date.now(), stats });
+    return stats;
 }
 
 export function validateRoleTarget(role, member, botMember) {
@@ -56,7 +80,9 @@ class SelfServiceRoleService {
             '',
             ...groups.map(group => {
                 const label = group.emoji ? `${group.emoji} ${group.label}` : group.label;
-                return `**${label}**：${group.description || '点击按钮管理此身份组'}`;
+                const requirement = getActivityRequirement(group);
+                const suffix = requirement ? `（近 7 天发言 ≥ ${requirement.minMessages} 条）` : '';
+                return `**${label}**：${group.description || '点击按钮管理此身份组'}${suffix}`;
             }),
         ].join('\n');
 
@@ -119,6 +145,23 @@ class SelfServiceRoleService {
         const mode = group.mode || 'toggle';
         const hasRole = member.roles.cache.has(role.id);
         const roleName = group.label || role.name;
+        const shouldGrantRole = !hasRole && (mode === 'grant' || mode === 'toggle');
+
+        if (shouldGrantRole) {
+            const requirement = getActivityRequirement(group);
+            if (requirement) {
+                await interaction.editReply({ content: `正在检查你近 7 天发言数是否达到「${roleName}」门槛，请稍候...` });
+                const stats = await getRecentStatsWithCache(interaction, interaction.user.id, {
+                    trackBots: guildConfig?.messageStats?.trackBots ?? false,
+                });
+                if (stats.messageCount < requirement.minMessages) {
+                    await interaction.editReply({
+                        content: `❌ 你近 7 天发言数为 ${stats.messageCount} 条，领取「${roleName}」需要至少 ${requirement.minMessages} 条。`,
+                    });
+                    return;
+                }
+            }
+        }
 
         if (mode === 'grant') {
             if (hasRole) {

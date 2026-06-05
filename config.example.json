@@ -79,48 +79,10 @@
                         "description": "string | null",
                         "emoji": "string | null",
                         "roleId": "string (Discord role ID)",
-                        "mode": "string (toggle | grant | remove, default: toggle)"
-                    }
-                ]
-            },
-            "activeRoles": {
-                "enabled": "boolean",
-                "panelTitle": "string (default: 活跃身份组领取)",
-                "panelDescription": "string (panel description shown above tiers)",
-                "mutuallyExclusive": "boolean (default: true)",
-                "trackBots": "boolean (default: false)",
-                "tiers": [
-                    {
-                        "id": "huangtao",
-                        "label": "黄桃",
-                        "roleId": "string (Discord role ID)",
-                        "minMessages": "number (minimum messages in last 7 days)",
-                        "emoji": "🍑",
-                        "description": "近 7 天发言达到指定条数"
-                    },
-                    {
-                        "id": "baitao",
-                        "label": "白桃",
-                        "roleId": "string (Discord role ID)",
-                        "minMessages": "number (minimum messages in last 7 days)",
-                        "emoji": "🍑",
-                        "description": "近 7 天发言达到指定条数"
-                    },
-                    {
-                        "id": "shuimitao",
-                        "label": "水蜜桃",
-                        "roleId": "string (Discord role ID)",
-                        "minMessages": "number (minimum messages in last 7 days)",
-                        "emoji": "🍑",
-                        "description": "近 7 天发言达到指定条数"
-                    },
-                    {
-                        "id": "pantao",
-                        "label": "蟠桃",
-                        "roleId": "string (Discord role ID)",
-                        "minMessages": "number (minimum messages in last 7 days)",
-                        "emoji": "🍑",
-                        "description": "近 7 天发言达到指定条数"
+                        "mode": "string (toggle | grant | remove, default: toggle)",
+                        "activityRequirement": {
+                            "minMessages": "number | optional (minimum messages in last 7 days before granting)"
+                        }
                     }
                 ]
             },
