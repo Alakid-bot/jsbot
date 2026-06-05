@@ -314,6 +314,26 @@
         return { enabled, groups };
     }
 
+    function collectMessageStats(warnings) {
+        const enabled = $('messageStatsEnabled').checked;
+        const queryAllowUserIds = parseList($('messageStatsQueryAllowUserIds').value);
+        const allowSelfQuery = $('messageStatsAllowSelfQuery').checked;
+        const trackBots = $('messageStatsTrackBots').checked;
+
+        queryAllowUserIds.forEach((userId) => {
+            if (!discordIdPattern.test(userId)) {
+                warnings.push(`发言统计白名单 DCID「${userId}」不像标准 Discord ID。`);
+            }
+        });
+
+        return {
+            enabled,
+            queryAllowUserIds,
+            allowSelfQuery,
+            trackBots,
+        };
+    }
+
     function collectActiveRoles(warnings) {
         const enabled = $('activeRolesEnabled').checked;
         const panelTitle = trimValue('activeRolesPanelTitle') || '活跃身份组';
