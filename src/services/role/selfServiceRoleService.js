@@ -1,4 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { logTime } from '../../utils/logger.js';
 
 const SELF_ROLE_PREFIX = 'self_role:';
 const MAX_BUTTONS_PER_ROW = 5;
@@ -15,6 +16,28 @@ function getButtonStyle(mode) {
     if (mode === 'remove') return ButtonStyle.Danger;
     if (mode === 'grant') return ButtonStyle.Success;
     return ButtonStyle.Primary;
+}
+
+export function validateRoleTarget(role, member, botMember) {
+    if (!role) {
+        return '该身份组不存在，请联系管理员检查配置。';
+    }
+    if (role.managed) {
+        return '该身份组由集成服务管理，Bot 无法分配。';
+    }
+    if (role.permissions.has(PermissionFlagsBits.Administrator)) {
+        return '出于安全原因，不能通过自助按钮领取管理员身份组。';
+    }
+    if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
+        return 'Bot 缺少“管理身份组”权限，请联系管理员。';
+    }
+    if (role.position >= botMember.roles.highest.position) {
+        return 'Bot 的最高身份组低于目标身份组，无法管理该身份组。';
+    }
+    if (role.position >= member.guild.members.me.roles.highest.position) {
+        return 'Bot 的身份组层级不足，无法管理该身份组。';
+    }
+    return null;
 }
 
 class SelfServiceRoleService {
@@ -62,25 +85,7 @@ class SelfServiceRoleService {
     }
 
     validateRoleTarget(role, member, botMember) {
-        if (!role) {
-            return '该身份组不存在，请联系管理员检查配置。';
-        }
-        if (role.managed) {
-            return '该身份组由集成服务管理，Bot 无法分配。';
-        }
-        if (role.permissions.has(PermissionFlagsBits.Administrator)) {
-            return '出于安全原因，不能通过自助按钮领取管理员身份组。';
-        }
-        if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-            return 'Bot 缺少“管理身份组”权限，请联系管理员。';
-        }
-        if (role.position >= botMember.roles.highest.position) {
-            return 'Bot 的最高身份组低于目标身份组，无法管理该身份组。';
-        }
-        if (role.position >= member.guild.members.me.roles.highest.position) {
-            return 'Bot 的身份组层级不足，无法管理该身份组。';
-        }
-        return null;
+        return validateRoleTarget(role, member, botMember);
     }
 
     async handleButton(interaction) {
@@ -99,7 +104,12 @@ class SelfServiceRoleService {
 
         const member = await interaction.guild.members.fetch(interaction.user.id);
         const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
-        const role = await interaction.guild.roles.fetch(group.roleId).catch(() => null);
+        let role = null;
+        try {
+            role = await interaction.guild.roles.fetch(group.roleId);
+        } catch (error) {
+            logTime(`[自助身份组] 获取身份组失败 ${group.roleId}: ${error.message}`, true);
+        }
         const validationError = this.validateRoleTarget(role, member, botMember);
         if (validationError) {
             await interaction.editReply({ content: `❌ ${validationError}` });
