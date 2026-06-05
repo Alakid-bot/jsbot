@@ -20,6 +20,7 @@ import { checkConfirmationPermission, punishmentConfirmationStore } from '../uti
 import { followHistoryService } from '../services/user/followHistoryService.js';
 import { collectionService } from '../services/user/collectionService.js';
 import { selfServiceRoleService } from '../services/role/selfServiceRoleService.js';
+import { activeRoleService } from '../services/role/activeRoleService.js';
 
 /**
  * 查找对应的按钮配置
@@ -217,6 +218,10 @@ export const buttonHandlers = {
 
     self_role: async interaction => {
         await selfServiceRoleService.handleButton(interaction);
+    },
+
+    active_role: async interaction => {
+        await activeRoleService.handleButton(interaction);
     },
 
     // 议事区支持按钮处理器
@@ -638,6 +643,7 @@ const BUTTON_CONFIG = {
     exit_volunteer_role: { handler: buttonHandlers.exit_volunteer_role, needDefer: true, cooldown: 60000 },
     sync_roles: { handler: buttonHandlers.sync_roles, needDefer: true, cooldown: 60000 },
     self_role: { handler: buttonHandlers.self_role, needDefer: true, cooldown: 3000 },
+    active_role: { handler: buttonHandlers.active_role, needDefer: true, cooldown: 60000 },
 
     // 议事系统相关
     start_debate: { handler: buttonHandlers.start_debate, needDefer: false, cooldown: 10000 },
