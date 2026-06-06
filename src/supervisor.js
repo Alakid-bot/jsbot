@@ -8,6 +8,7 @@ import { mkdir, readFile, rename, stat, writeFile } from 'fs/promises';
 import { dirname, extname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { pgManager } from './pg/pgManager.js';
+import { getExternalReadonlyStats, getExternalReadonlyStatus } from './services/externalReadonlyStatsService.js';
 import { getConfigPath } from './utils/configPaths.js';
 import {
     getCommandInventory,
@@ -983,6 +984,16 @@ async function handleApi(req, res, pathname) {
 
     if (req.method === 'GET' && pathname === '/api/status') {
         sendJson(res, 200, await getStatus());
+        return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/external-readonly/status') {
+        sendJson(res, 200, await getExternalReadonlyStatus());
+        return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/external-readonly/stats') {
+        sendJson(res, 200, await getExternalReadonlyStats());
         return;
     }
 
