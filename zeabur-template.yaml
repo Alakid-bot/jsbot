@@ -130,6 +130,12 @@ spec:
             default: "5000"
           JSBOT_PG_LOGGING:
             default: "false"
+          JSBOT_EXTERNAL_READONLY_API_URL:
+            default: http://152.53.231.224:8787
+          JSBOT_EXTERNAL_READONLY_API_TOKEN:
+            default: ""
+          JSBOT_EXTERNAL_READONLY_API_TIMEOUT_MS:
+            default: "10000"
           ZEABUR_POSTGRES_HOST:
             default: ${POSTGRES_HOST}
           ZEABUR_POSTGRES_PORT:

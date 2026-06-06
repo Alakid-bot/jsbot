@@ -168,6 +168,11 @@ write_json_from_env "$JSBOT_CONFIG_PATH" "JSBOT_CONFIG_JSON" "JSBOT_CONFIG_JSON_
 # PostgreSQL configuration is required because runtime data is stored in PostgreSQL.
 write_json_from_env "pg.config.json" "JSBOT_PG_CONFIG_JSON" "JSBOT_PG_CONFIG_JSON_BASE64" "false"
 
+# Optional external read-only API configuration. This is separate from
+# pg.config.json so the bot can keep writing runtime data to its own database
+# while reading website/VPS statistics through a fixed read-only HTTP API.
+write_json_from_env "external-readonly-api.config.json" "JSBOT_EXTERNAL_READONLY_API_JSON" "JSBOT_EXTERNAL_READONLY_API_JSON_BASE64" "false"
+
 # If this service is deployed together with a Zeabur PostgreSQL service, Zeabur
 # can provide POSTGRES_* variables. Generate pg.config.json from them when no
 # explicit JSBOT_PG_CONFIG_JSON/BASE64 value was provided.
