@@ -1408,6 +1408,70 @@
         box.innerHTML = `<strong>配置验证结果</strong><div class="validation-summary">${summary} / ${checks.length} 项通过</div><div class="validation-list">${items}</div>`;
     }
 
+    async function checkExternalReadonly() {
+        const button = $('checkExternalReadonly');
+        const box = $('externalReadonlyStatus');
+        const hint = $('externalReadonlyOfflineHint');
+
+        if (!isOnlineMode) {
+            hint.hidden = false;
+            return;
+        }
+
+        hint.hidden = true;
+        button.disabled = true;
+        box.hidden = false;
+        box.innerHTML = '<div class="validation-item pending"><strong>正在检查外部只读数据库连接...</strong><span>等待</span></div>';
+
+        try {
+            const status = await apiRequest('/api/external-readonly/status');
+            let stats = null;
+            try {
+                stats = await apiRequest('/api/external-readonly/stats');
+            } catch (_statsError) {
+                // stats is optional
+            }
+
+            const dbName = status?.dbName || status?.database || '未知';
+            const inRecovery = status?.inRecovery ?? status?.in_recovery ?? null;
+            const readOnlySetting = status?.transactionReadOnly ?? status?.transaction_read_only ?? null;
+            const isReadOnly = status?.isReadOnly ?? status?.is_readonly ?? (readOnlySetting === null ? null : readOnlySetting === true || readOnlySetting === 'on');
+            const baseUrl = status?.baseUrl || '未知';
+
+            const usersTotal = stats?.users?.total ?? stats?.usersTotal ?? stats?.users_total ?? stats?.totalUsers ?? '未知';
+            const usersActive = stats?.users?.active ?? stats?.usersActive ?? stats?.users_active ?? stats?.activeUsers ?? '未知';
+            const groupCount = Array.isArray(stats?.groups) ? stats.groups.length : stats?.groupCount ?? stats?.group_count ?? '未知';
+            const recentUsage = Array.isArray(stats?.recentUsage) ? stats.recentUsage.length : stats?.recentUsage ?? stats?.recent_usage ?? stats?.usage ?? '未知';
+
+            const isHealthy = Boolean(
+                status && !status.error &&
+                (isReadOnly !== null ? isReadOnly === true : true) &&
+                (inRecovery !== null ? inRecovery === true : true)
+            );
+
+            const summaryCls = isHealthy ? 'ok' : 'error';
+            const summaryText = isHealthy ? '连接正常' : '连接异常';
+
+            const items = [
+                `<div class="validation-item ${summaryCls}"><strong>连接状态</strong><span>${escapeHtml(summaryText)}</span></div>`,
+                `<div class="validation-item ok"><strong>数据库名称</strong><span>${escapeHtml(String(dbName))}</span></div>`,
+                `<div class="validation-item ${inRecovery === true ? 'ok' : 'warning'}"><strong>副本状态</strong><span>${inRecovery === true ? 'standby / recovery' : inRecovery === false ? '主库 / 非副本' : '未知'}</span></div>`,
+                `<div class="validation-item ${isReadOnly === true ? 'ok' : 'warning'}"><strong>只读状态</strong><span>${isReadOnly === true ? '只读' : isReadOnly === false ? '可写' : '未知'}</span></div>`,
+                `<div class="validation-item ok"><strong>用户总数</strong><span>${escapeHtml(String(usersTotal))}</span></div>`,
+                `<div class="validation-item ok"><strong>活跃用户</strong><span>${escapeHtml(String(usersActive))}</span></div>`,
+                `<div class="validation-item ok"><strong>分组数量</strong><span>${escapeHtml(String(groupCount))}</span></div>`,
+                `<div class="validation-item ok"><strong>近期用量</strong><span>${escapeHtml(String(recentUsage))}</span></div>`,
+                `<div class="validation-item ok"><strong>Base URL</strong><span>${escapeHtml(String(baseUrl))}</span></div>`,
+            ].join('');
+
+            box.innerHTML = `<strong>外部只读数据库检查结果</strong><div class="validation-list">${items}</div>`;
+        } catch (error) {
+            box.innerHTML = `<strong>外部只读数据库检查结果</strong><div class="validation-list"><div class="validation-item error"><strong>检查失败</strong><span>${escapeHtml(error.message || '请求失败')}</span></div></div>`;
+        } finally {
+            button.disabled = false;
+        }
+    }
+
     function downloadConfig() {
         const blob = new Blob([$('configOutput').value], { type: 'application/json;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -1751,6 +1815,8 @@
         $('resetForm').addEventListener('click', resetForm);
         $('importFile').addEventListener('change', (event) => importConfig(event.target.files[0]));
 
+        $('checkExternalReadonly').addEventListener('click', checkExternalReadonly);
+
         if (isOnlineMode) {
             $('logoutButton').hidden = false;
             $('saveServerConfig').addEventListener('click', saveServerConfig);
@@ -1765,6 +1831,8 @@
         if (!isOnlineMode) {
             $('modeTitle').textContent = '本地处理';
             $('modeDescription').textContent = '纯静态页面，数据只在浏览器本地处理；复制生成结果到 Zeabur 环境变量即可。';
+            $('externalReadonlyOfflineHint').hidden = false;
+            $('checkExternalReadonly').disabled = true;
             return;
         }
 

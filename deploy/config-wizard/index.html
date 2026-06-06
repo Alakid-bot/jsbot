@@ -352,9 +352,26 @@
                     </div>
                 </section>
 
+                <section class="section-card" id="externalReadonlySection">
+                    <div class="section-heading">
+                        <span class="step">11</span>
+                        <div>
+                            <h2>外部只读数据库</h2>
+                            <p class="section-tip">检查 jsbot 是否能读取外部只读统计数据数据库。仅在线模式可用。</p>
+                        </div>
+                    </div>
+                    <div class="grid">
+                        <div class="actions-row">
+                            <button id="checkExternalReadonly" class="secondary" type="button">检查只读数据库连接</button>
+                        </div>
+                        <div id="externalReadonlyStatus" class="validation-panel" hidden></div>
+                        <p id="externalReadonlyOfflineHint" class="helper-text" hidden>本地静态模式无法检查外部数据库。部署到 Zeabur 并登录后可使用此功能。</p>
+                    </div>
+                </section>
+
                 <section class="section-card actions-card">
                     <div class="section-heading compact">
-                        <span class="step">11</span>
+                        <span class="step">12</span>
                         <div>
                             <h2>导入 / 重置</h2>
                             <p>可以导入已有 <code>config.json</code> 继续编辑。</p>
@@ -371,7 +388,7 @@
 
                 <section id="onlineActions" class="section-card actions-card" hidden>
                     <div class="section-heading compact">
-                        <span class="step">12</span>
+                        <span class="step">13</span>
                         <div>
                             <h2>在线保存 / Bot 控制</h2>
                             <p>在 Zeabur 域名访问时，配置会保存到 PostgreSQL；<code>data/config.json</code> 仅作为 Bot 启动运行副本。</p>

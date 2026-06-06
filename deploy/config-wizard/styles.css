@@ -744,6 +744,16 @@ button:active,
     color: var(--danger);
 }
 
+.validation-item.warning {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
+.validation-item.pending {
+    background: var(--primary-soft);
+    color: var(--primary-dark);
+}
+
 .validation-item small {
     grid-column: 1 / -1;
     color: inherit;
